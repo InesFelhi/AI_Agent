@@ -1,0 +1,377 @@
+# Workflows Introduction
+
+## What is a Workflow?
+
+A **workflow** is a sequence of tasks executed in a specific order on an Android device. It defines the logic, conditions, and flow of automation actions.
+
+### Internal Structure: Graph-Based
+
+Internally, workflows are represented as a **directed graph** with:
+- **Nodes**: Individual tasks (Start, End, Normal tasks, Conditions)
+- **Edges/Links**: Connections between nodes defining the execution flow
+- **Entry Point**: Single START node where execution begins
+- **Exit Points**: One or more END nodes where execution terminates
+
+The workflow engine traverses the graph starting from START, follows the links, and executes each node until reaching an END node.
+
+**Example JSON structure:**
+
+```json
+{
+  "Start": [
+    {
+      "id": "0",
+      "title": "Network Connectivity Test",
+      "variables": [
+        {
+          "variableName": "$network_status",
+          "variableValue": "unknown",
+          "is_kpi": false
+        }
+      ]
+    }
+  ],
+  
+  "CmdStage": [
+    {
+      "id": "1",
+      "title": "Ping Google DNS",
+      "cmd_text": "ping -c 1 8.8.8.8",
+      "cmd_result_output": "$PING_RESULT",
+      "cmd_error_output": "$PING_ERROR"
+    }
+  ],
+  
+  "CompareText": [
+    {
+      "id": "2",
+      "title": "Check if Network Unreachable",
+      "text_x": "$PING_ERROR",
+      "text_y": "unreachable",
+      "compare_type": 2
+    }
+  ],
+  
+  "TextReport": [
+    {
+      "id": "3",
+      "title": "Log Network Down",
+      "texte": "Network is unreachable: $PING_ERROR"
+    },
+    {
+      "id": "4",
+      "title": "Log Network Up",
+      "texte": "Network is OK: $PING_RESULT"
+    }
+  ],
+  
+  "End": [
+    {
+      "id": "100",
+      "title": "Workflow Complete"
+    }
+  ],
+  
+  "Links": [
+    {
+      "from": "0",
+      "to": "1"
+    },
+    {
+      "from": "1",
+      "to": "2"
+    },
+    {
+      "from": "2",
+      "true": "3",
+      "false": "4"
+    },
+    {
+      "from": "3",
+      "to": "100"
+    },
+    {
+      "from": "4",
+      "to": "100"
+    }
+  ]
+}
+```
+
+**Graph visualization:**
+
+```
+START (id:0)
+    ↓
+TextReport (id:1)
+    ↓
+CompareNumber (id:2)
+    ├─→ TRUE → END (id:100)
+    └─→ FALSE → TextReport (id:1) [loop back]
+```
+
+---
+
+## Understanding Links (Connections)
+
+The **Links** section defines how nodes are connected and the execution flow:
+
+### Link Types
+
+#### 1. Sequential Link (Normal Task)
+
+Connects one task directly to the next:
+
+```json
+{
+  "from": "0",
+  "to": "1"
+}
+```
+
+**Meaning**: After node 0 completes, immediately execute node 1.
+
+---
+
+#### 2. Conditional Link (Decision Node)
+
+Branches execution based on condition result:
+
+```json
+{
+  "from": "2",
+  "true": "100",
+  "false": "1"
+}
+```
+
+**Meaning**: 
+- If condition in node 2 is TRUE → go to node 100
+- If condition in node 2 is FALSE → go to node 1
+
+---
+
+### Graph Traversal Algorithm
+
+The workflow engine:
+
+1. **Starts** at the START node (id: 0 or similar)
+2. **Follows** the "from" → "to" links
+3. **Evaluates** conditions and branches (true/false)
+4. **Executes** each task at every node visited
+5. **Terminates** when reaching an END node
+
+---
+
+## Complete Workflow Example with Graph Structure
+
+### Scenario: Check temperature and log result
+
+```json
+{
+  "Start": [
+    {
+      "id": "0",
+      "title": "Initialize",
+      "variables": [
+        {
+          "variableName": "$temperature",
+          "variableValue": "25",
+          "is_kpi": true
+        }
+      ]
+    }
+  ],
+  
+  "TextReport": [
+    {
+      "id": "1",
+      "title": "Log Temperature",
+      "texte": "Current temperature: $temperature°C"
+    }
+  ],
+  
+  "CompareNumber": [
+    {
+      "id": "2",
+      "title": "Temperature Check",
+      "num_x": "$temperature",
+      "num_y": "30",
+      "compare_type": 1
+    }
+  ],
+  
+  "TextReport": [
+    {
+      "id": "3",
+      "title": "Too Hot Alert",
+      "texte": "Temperature exceeds 30°C: $temperature°C"
+    },
+    {
+      "id": "4",
+      "title": "Normal Temperature",
+      "texte": "Temperature is OK: $temperature°C"
+    }
+  ],
+  
+  "End": [
+    {
+      "id": "100"
+    }
+  ],
+  
+  "Links": [
+    {
+      "from": "0",
+      "to": "1"
+    },
+    {
+      "from": "1",
+      "to": "2"
+    },
+    {
+      "from": "2",
+      "true": "3",
+      "false": "4"
+    },
+    {
+      "from": "3",
+      "to": "100"
+    },
+    {
+      "from": "4",
+      "to": "100"
+    }
+  ]
+}
+```
+
+### Graph Flow:
+
+```mermaid
+flowchart TD
+    Start([START id:0<br/>temperature=25]) --> TextReport1[TextReport id:1<br/>Log Temperature]
+    TextReport1 --> CompareNum[CompareNumber id:2<br/>25 > 30?]
+    CompareNum -->|TRUE| TextReport3[TextReport id:3<br/>Too Hot Alert]
+    CompareNum -->|FALSE| TextReport4[TextReport id:4<br/>Normal Temperature]
+    TextReport3 --> End[END id:100]
+    TextReport4 --> End
+    
+    style Start fill:#e3f2fd
+    style End fill:#c8e6c9
+    style CompareNum fill:#fff9c4
+    style TextReport1 fill:#f3e5f5
+    style TextReport3 fill:#ffe0e0
+    style TextReport4 fill:#e0f0e0
+```
+
+---
+
+## Workflow Components Summary
+
+| Component | Purpose | Quantity | JSON Key | Example ID | Description |
+|-----------|---------|----------|----------|------------|-------------|
+| **START Task** | Entry point, initializes workflow | Exactly 1 | `"Start"` | `"0"` | Begins execution. |
+| **Normal Tasks** | Execute sequentially without conditions | 0 or more | Task type (CmdStage, Sleep, etc.) | `"1", "2"` | Execute one after another in sequence. |
+| **Conditional Tasks** | Branch execution based on conditions | 0 or more | CompareNumber, CompareText | `"2"` | Evaluate true/false and branch execution. |
+| **END Task** | Exit point, terminates workflow | 1 or more | `"End"` | `"100"` | Ends execution. Can have multiple endpoints. |
+| **Links** | Define connections between nodes | Required | `"Links"` | N/A | Maps node IDs with "from", "to", "true", "false" |
+
+---
+
+## Workflow Execution Flow
+
+### Basic Flow (Linear)
+
+Linear execution: START → Task 1 → Task 2 → END
+
+**JSON Example:**
+
+```json
+{
+  "Start": [{"id": "0"}],
+  "CmdStage": [{"id": "1", "cmd_text": "ping -c 1 8.8.8.8"}],
+  "Sleep": [{"id": "2", "Time_sleep": 1000}],
+  "End": [{"id": "100"}],
+  "Links": [
+    {"from": "0", "to": "1"},
+    {"from": "1", "to": "2"},
+    {"from": "2", "to": "100"}
+  ]
+}
+```
+
+**Mermaid Diagram:**
+
+```mermaid
+flowchart TD
+    Start([START id:0]) --> Task1[CmdStage id:1<br/>ping]
+    Task1 --> Task2[Sleep id:2<br/>1000ms]
+    Task2 --> End[END id:100]
+    
+    style Start fill:#e3f2fd
+    style End fill:#c8e6c9
+    style Task1 fill:#f3e5f5
+    style Task2 fill:#fff9c4
+```
+
+---
+
+### Branching Flow (Conditional)
+
+Branching execution with true/false paths: START → Task 1 → Condition → (TRUE→Task2 | FALSE→Task3) → END
+
+**JSON Example:**
+
+```json
+{
+  "Start": [{"id": "0"}],
+  "CmdStage": [{"id": "1", "cmd_text": "ping -c 1 8.8.8.8", "cmd_error_output": "$ERROR"}],
+  "CompareText": [{"id": "2", "text_x": "$ERROR", "text_y": "unreachable", "compare_type": 2}],
+  "TextReport": [
+    {"id": "3", "texte": "Network down"},
+    {"id": "4", "texte": "Network up"}
+  ],
+  "End": [{"id": "100"}],
+  "Links": [
+    {"from": "0", "to": "1"},
+    {"from": "1", "to": "2"},
+    {"from": "2", "true": "3", "false": "4"},
+    {"from": "3", "to": "100"},
+    {"from": "4", "to": "100"}
+  ]
+}
+```
+
+**Mermaid Diagram:**
+
+```mermaid
+flowchart TD
+    Start([START id:0]) --> Task1[CmdStage id:1<br/>ping]
+    Task1 --> Condition[CompareText id:2<br/>ERROR contains unreachable?]
+    Condition -->|TRUE| Task3[TextReport id:3<br/>Network Down]
+    Condition -->|FALSE| Task4[TextReport id:4<br/>Network Up]
+    Task3 --> End[END id:100]
+    Task4 --> End
+    
+    style Start fill:#e3f2fd
+    style End fill:#c8e6c9
+    style Condition fill:#fff9c4
+    style Task1 fill:#f3e5f5
+    style Task3 fill:#ffe0e0
+    style Task4 fill:#e0f0e0
+```
+
+---
+
+
+
+
+
+
+
+
+
+
+
+
