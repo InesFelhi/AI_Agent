@@ -1,0 +1,224 @@
+2026-02-27 03:39:29 | INFO | chunker | Chunker initialized (max_chunk_size=200, overlap=50)
+2026-02-27 03:39:29 | INFO | chunker | Starting chunking process for document_id=eeb24708-2178-420b-bb84-7098fbf14fc7
+2026-02-27 03:39:29 | INFO | chunker | Created 0 chunks for section 'Current Speed Stage'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk e252c290-a3e1-4f89-83b7-96a025a17ed3 created (words 0-25)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Summary'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 6fb68bc7-0cd6-4473-b5d7-a89fec63f3c9 created (words 0-71)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Compatibility'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk f403a160-5118-4ffb-b3bd-245f696a5b82 created (words 0-82)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Detailed description'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 2dc1f0b5-e983-4734-b2c7-03b8cade2fec created (words 0-200)
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 75b4dd9c-9edf-4429-ba59-ad48d7c73e29 created (words 150-350)
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk b9f22429-249b-4b6f-8560-61d3683c7a74 created (words 300-384)
+2026-02-27 03:39:29 | INFO | chunker | Created 3 chunks for section 'Flowchart'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk da76bc8c-8a43-48b5-8a19-6bb6ccbcbfa9 created (words 0-114)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Input parameters'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk f376d45e-4977-4937-b0c5-cfab9d06484f created (words 0-108)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Outputs'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk aa13eb4d-8151-4d72-835e-5cd3059733d2 created (words 0-164)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Exceptions'
+2026-02-27 03:39:29 | INFO | chunker | Created 0 chunks for section 'Parameter details'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 56816c93-d1c8-42fd-bbdd-f3a5e4f1a54f created (words 0-12)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section '1. Input parameter: `location_timeout`'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 76034733-653c-4e84-a745-0296d52ca037 created (words 0-2)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 2919f63e-6399-47bd-bf69-5aae0f0a1ce1 created (words 0-14)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk d89c93d3-3e84-4f9b-9357-cb99b0c04041 created (words 0-13)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section '2. Input parameter: `sample_interval`'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk d9d5110c-f0c1-41f8-96d3-2117b30c6a0b created (words 0-2)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 209d4f6a-9668-4e2e-9765-b3043dcf2324 created (words 0-18)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 88d3266a-0af3-43f9-b1bd-766b656065b0 created (words 0-8)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section '3. Input parameter: `max_speed_accuracy`'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk ecfa62cd-895f-4c3e-bdcd-7c24e39ce2df created (words 0-2)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk d0bd541b-c38b-41a3-aeb9-7d9467c4f9c4 created (words 0-19)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-02-27 03:39:29 | INFO | chunker | Created 0 chunks for section 'Output details'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk a6578e23-ffb6-4366-b28e-1e28be1810a2 created (words 0-7)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section '4. Result variable: `speed_value_output`'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk d07f94bc-58d8-4c68-9d6a-3bdc55e906f8 created (words 0-2)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 424acc54-fd8d-4911-8740-33754e3c60ea created (words 0-8)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section '5. Result variable: `distance_output`'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk f93471d9-de0a-4963-aa0d-294c3d55bfac created (words 0-2)
+2026-02-27 03:39:29 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-02-27 03:39:29 | DEBUG | chunker | Chunk 813b771b-9f00-47ca-a728-b6a15679b3e1 created (words 0-14)
+2026-02-27 03:39:30 | INFO | chunker | Created 1 chunks for section '6. Result variable: `speed_accuracy_used`'
+2026-02-27 03:39:30 | DEBUG | chunker | Chunk cc1c6693-47e6-412d-80f1-7cf890885890 created (words 0-2)
+2026-02-27 03:39:30 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-02-27 03:39:30 | DEBUG | chunker | Chunk b76e659f-8220-4db5-bc3e-8372d780c247 created (words 0-39)
+2026-02-27 03:39:30 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-02-27 03:39:30 | DEBUG | chunker | Chunk 2bcd8b8a-c9c9-4ec4-aa5f-c96e332775a8 created (words 0-34)
+2026-02-27 03:39:30 | INFO | chunker | Created 1 chunks for section 'Complete JSON example'
+2026-02-27 03:39:30 | INFO | chunker | Total chunks created: 26
+2026-03-03 14:36:54 | INFO | chunker | Chunker initialized (max_chunk_size=200, overlap=50)
+2026-03-03 14:36:54 | INFO | chunker | Starting chunking process for document_id=4eefae12-132e-43dc-a9ce-f5fc3f180bef
+2026-03-03 14:36:54 | INFO | chunker | Created 0 chunks for section 'Current Speed Stage'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 43a12d35-9ecc-42da-a323-972e3b300ea5 created (words 0-25)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Summary'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk cb3219e3-d3f2-4b88-8120-fce479eef168 created (words 0-71)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Compatibility'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk fb2d1f82-7d54-4772-a071-bf889a8f7b78 created (words 0-82)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Detailed description'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 0006318e-07cb-4314-bf98-6a9f251cac1d created (words 0-200)
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 1cfb4e6a-b479-49bc-a7c8-ab4aaea9323c created (words 150-350)
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk a7e798c9-91f7-44c4-bf1f-d55d062c8051 created (words 300-384)
+2026-03-03 14:36:54 | INFO | chunker | Created 3 chunks for section 'Flowchart'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 7b2e1ac4-c160-4f3b-a787-2903cc835c7b created (words 0-114)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Input parameters'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 2bc85d7c-a945-463e-9b04-94e6c2ba6fb4 created (words 0-108)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Outputs'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 7cc2d53d-b69c-49e6-be36-e539393d008e created (words 0-164)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Exceptions'
+2026-03-03 14:36:54 | INFO | chunker | Created 0 chunks for section 'Parameter details'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 3a26c47a-efa6-4d96-ab89-bd01b8ff89ba created (words 0-12)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section '1. Input parameter: `location_timeout`'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk af1ca100-be88-4075-8abd-72647767a023 created (words 0-2)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 5ff685a3-bcd6-42ac-a6eb-ba9cc23c788e created (words 0-14)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 6c7e6673-b964-460b-84fb-8a1056c70b46 created (words 0-13)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section '2. Input parameter: `sample_interval`'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 09ad2117-f2a3-4250-9726-c8bd3661030c created (words 0-2)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 1ac1f558-7402-4d1a-a286-aab2d4d7b351 created (words 0-18)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 772d8e11-1e08-473a-b15d-33fe8cfdc31f created (words 0-8)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section '3. Input parameter: `max_speed_accuracy`'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 2af6159c-c507-4119-afc6-96f939e3f0aa created (words 0-2)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 7a94efa6-1795-4021-9d49-3b26dc479e2a created (words 0-19)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-03 14:36:54 | INFO | chunker | Created 0 chunks for section 'Output details'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 27d6b98f-4205-4392-9f3b-7fd115abdba4 created (words 0-7)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section '4. Result variable: `speed_value_output`'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 54af34ad-d5ea-4728-af43-97d938118033 created (words 0-2)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk c7130be0-025d-45db-aa7d-7238b139d9f8 created (words 0-8)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section '5. Result variable: `distance_output`'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 3df07fce-0a70-40f7-884c-9f08dd9ec754 created (words 0-2)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 9f80e71f-b60d-4ba1-819c-a7e39ed83f19 created (words 0-14)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section '6. Result variable: `speed_accuracy_used`'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 8a0f80c4-895c-4b61-81d1-18e06528e6aa created (words 0-2)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk 3fc6e19d-2f19-4de3-8769-1ba86b1e534d created (words 0-39)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-03 14:36:54 | DEBUG | chunker | Chunk f994f121-0491-4494-bbae-dc348e77d673 created (words 0-34)
+2026-03-03 14:36:54 | INFO | chunker | Created 1 chunks for section 'Complete JSON example'
+2026-03-03 14:36:54 | INFO | chunker | Total chunks created: 26
+2026-03-04 00:51:31 | INFO | chunker | Chunker initialized (max_chunk_size=200, overlap=50)
+2026-03-04 00:51:31 | INFO | chunker | Starting chunking process for document_id=d7569ab9-eaff-4b20-92e5-8a0b9d4760f5
+2026-03-04 00:51:31 | INFO | chunker | Created 0 chunks for section 'Current Speed Stage'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk b8dfda22-6a8a-49d2-9e22-b01cd9c7d00d created (words 0-25)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Summary'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk ad0cc93b-59ef-4fef-939f-603b8bafcee4 created (words 0-71)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Compatibility'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 62ffad09-2d33-467d-aca0-25b4970b692b created (words 0-82)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Detailed description'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 11f7c3d8-6355-4e4e-8adc-fb94781b940d created (words 0-200)
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 38570b7d-ae4b-4e70-89e0-b78075c94d0f created (words 150-350)
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 1aea65c4-3f2f-4fd0-b176-5392f2d35a8f created (words 300-384)
+2026-03-04 00:51:31 | INFO | chunker | Created 3 chunks for section 'Flowchart'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 03b9765e-6269-4cae-9d99-e57faca12fb9 created (words 0-114)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Input parameters'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 33c8d4f0-9a7c-4205-889b-fbd5a0515fe4 created (words 0-108)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Outputs'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk e076b596-f13f-4396-bfe9-3f71cf5d6edb created (words 0-164)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Exceptions'
+2026-03-04 00:51:31 | INFO | chunker | Created 0 chunks for section 'Parameter details'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 7e0b0af0-8a8d-4219-9055-0e3201ee2d30 created (words 0-12)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section '1. Input parameter: `location_timeout`'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk d7b2861c-a61a-479c-b4e0-7ab42de2fb54 created (words 0-2)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk b1b2a771-c110-4651-bf07-aab227b1f0e7 created (words 0-14)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 81ae60cc-311b-4e35-8dee-fc8bd77d3450 created (words 0-13)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section '2. Input parameter: `sample_interval`'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk fff94d80-0d39-4e62-9bd7-a8dbd260befb created (words 0-2)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk ef44e0b8-556a-4d48-88f9-b5be46ffc2db created (words 0-18)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk a5466316-dee5-474f-acff-8b776f092cb2 created (words 0-8)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section '3. Input parameter: `max_speed_accuracy`'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 2739dabf-647e-4eae-9681-28eb99597347 created (words 0-2)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 099312fb-c09d-4381-95dd-3930cc3fac72 created (words 0-19)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 00:51:31 | INFO | chunker | Created 0 chunks for section 'Output details'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 38462762-9cac-42f4-813e-e90fb671c5e9 created (words 0-7)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section '4. Result variable: `speed_value_output`'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 1d483953-11ea-4757-bafd-8025c9f820dc created (words 0-2)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 6e22871d-6346-40ec-bfd8-c7eee3bb6fb6 created (words 0-8)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section '5. Result variable: `distance_output`'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk f38c0f7c-c586-4588-954b-d13ba86cc1a6 created (words 0-2)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 76f7132e-3dee-4a43-a075-ce932452fdef created (words 0-14)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section '6. Result variable: `speed_accuracy_used`'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 1fb2b3e4-0caa-44bd-aaf7-b5eff29111b3 created (words 0-2)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 9c195177-c11f-4a52-9b27-335b8b5407d3 created (words 0-39)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 00:51:31 | DEBUG | chunker | Chunk 8429e22a-e15b-4893-bb13-858d5008205b created (words 0-34)
+2026-03-04 00:51:31 | INFO | chunker | Created 1 chunks for section 'Complete JSON example'
+2026-03-04 00:51:31 | INFO | chunker | Total chunks created: 26
+2026-03-04 01:01:06 | INFO | chunker | Chunker initialized (max_chunk_size=200, overlap=50)
+2026-03-04 01:01:06 | INFO | chunker | Starting chunking process for document_id=764df647-5c63-4664-8932-44291b052dc5
+2026-03-04 01:01:06 | INFO | chunker | Created 0 chunks for section 'Current Speed Stage'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 45d32d32-7a8e-4470-bb8e-b66451fea53e created (words 0-25)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Summary'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk c3788497-eeee-4981-b6f9-42e75c75ab8e created (words 0-71)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Compatibility'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 7ca8f039-90c2-40c0-a7fb-a866b0e64acb created (words 0-82)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Detailed description'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk a3367315-9c8c-4ba6-8d89-4b0838c35d00 created (words 0-200)
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk c2b72ef3-384a-44dd-83ce-462788e7faa4 created (words 150-350)
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk d4c2b543-5a8c-483b-96dc-03f5b848adbd created (words 300-384)
+2026-03-04 01:01:06 | INFO | chunker | Created 3 chunks for section 'Flowchart'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 975a9aeb-81dc-4ec0-a192-09c8b1f239ab created (words 0-114)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Input parameters'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 36eb1164-5604-4021-91ed-56341e0a95c3 created (words 0-108)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Outputs'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk b5bae2c8-b017-4ffb-befc-59127dc29d90 created (words 0-164)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Exceptions'
+2026-03-04 01:01:06 | INFO | chunker | Created 0 chunks for section 'Parameter details'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 551c8ffd-5a9d-4fa1-bd12-c269e4396324 created (words 0-12)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section '1. Input parameter: `location_timeout`'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 7c865521-2116-4f2e-a386-6610e6a6803b created (words 0-2)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 07bc54d7-ec3b-4a79-b913-e1c5ea5d635b created (words 0-14)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 59f727e8-e1cb-42da-986f-6036d1485d6f created (words 0-13)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section '2. Input parameter: `sample_interval`'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk b7376463-0afc-4a65-bf4a-4c931cf34d89 created (words 0-2)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk a3ba7012-0e5e-414f-9885-17ee2057343e created (words 0-18)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 5c2e8eaa-1784-496e-aeac-0e7d7be66840 created (words 0-8)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section '3. Input parameter: `max_speed_accuracy`'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 9f213507-2704-4d6c-a523-d3cff2ffd507 created (words 0-2)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 505240a6-a53e-4ab5-8f30-89c7f9014693 created (words 0-19)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 01:01:06 | INFO | chunker | Created 0 chunks for section 'Output details'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 837467b7-87db-4a5c-b9c0-ed3b87c2b885 created (words 0-7)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section '4. Result variable: `speed_value_output`'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk cbf144a7-f484-4cce-8786-c638eb12fa0e created (words 0-2)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 4090d240-d8b5-4180-a410-6349459fe4a7 created (words 0-8)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section '5. Result variable: `distance_output`'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 378397d2-0e8a-4adf-8b22-98cb463fa1c9 created (words 0-2)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk 01e7a024-33b7-46a3-b884-422c4a27a0a7 created (words 0-14)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section '6. Result variable: `speed_accuracy_used`'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk dc9fa5b4-c1ee-4c6c-a4c2-188456749f45 created (words 0-2)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Example'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk e7781951-c663-4ae7-b641-59095519da95 created (words 0-39)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Details'
+2026-03-04 01:01:06 | DEBUG | chunker | Chunk ffe20c56-1408-4a8b-8c53-6b138b97846e created (words 0-34)
+2026-03-04 01:01:06 | INFO | chunker | Created 1 chunks for section 'Complete JSON example'
+2026-03-04 01:01:06 | INFO | chunker | Total chunks created: 26

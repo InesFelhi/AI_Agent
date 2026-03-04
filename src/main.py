@@ -1,32 +1,39 @@
+
 from pathlib import Path
-from src.ingestion_pipeline.document_cleaner import DocumentCleaner
+from src.ingestion_pipeline.chunker import Chunker
+from src.ingestion_pipeline.schemas import Chunk
+import uuid
 
-# Chemins de base
-RAW_BASE = Path("data/raw")
-PROCESSED_BASE = Path("data/processed")
-
-# Mapping des dossiers raw -> processed
-FOLDER_MAPPING = {
-    "tasks": "task_docs",
-    "app": "app_docs",
-    "workflows": "workflow_docs",
-}
+# Fichier Markdown à tester
+MD_FILE = Path("data/processed/task_docs/current-speed.md")
 
 def main():
-    cleaner = DocumentCleaner()
+    if not MD_FILE.exists():
+        print(f"File does not exist: {MD_FILE}")
+        return
 
-    for raw_folder, processed_folder in FOLDER_MAPPING.items():
-        raw_path = RAW_BASE / raw_folder
-        processed_path = PROCESSED_BASE / processed_folder
-        processed_path.mkdir(parents=True, exist_ok=True)  # Crée le dossier processed si nécessaire
+    text = MD_FILE.read_text(encoding="utf-8")
+    print(f"\nRead Markdown file: {MD_FILE.name} ({len(text)} characters)\n")
 
-        # Récupère tous les fichiers Markdown
-        md_files = list(raw_path.glob("*.md"))
+    # Initialisation du chunker
+    chunker = Chunker(max_chunk_size=200, overlap=50)
 
-        for md_file in md_files:
-            output_file = processed_path / md_file.name
-            cleaner.clean_file(input_path=md_file, output_path=output_file)
-            print(f"Cleaned: {md_file} -> {output_file}")
+    # Metadata de test
+    metadata = {
+        "document_id": str(uuid.uuid4()),
+        "type_doc": "task_doc",
+        "file_name": MD_FILE.name
+    }
+
+    # Création des chunks
+    chunks = chunker.chunk(text, metadata)
+    print(f"Total chunks created: {len(chunks)}\n{'='*50}\n")
+
+    # Affichage de tous les chunks
+    for i, chunk in enumerate(chunks):
+        print(f"Chunk {i+1} | ID: {chunk.id} | Words: {len(chunk.content.split())}")
+        print(chunk.content)
+        print("-"*80)
 
 if __name__ == "__main__":
     main()
