@@ -2,7 +2,7 @@
 
 ## Summary
 
-- **Internal name**: 'SCREEN_AUTOMATOR'
+- **Internal name**: `SCREEN_AUTOMATOR`
 - **Category**: Screen Automation / Accessibility
 - **Purpose**: Perform a click on a UI element detected by its visible or accessible text.
 
@@ -20,10 +20,10 @@ If text is not detectable by Accessibility, the ClickInText action cannot work.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android version**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android version**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 
 ### Supported manufacturers
 
@@ -31,16 +31,16 @@ If text is not detectable by Accessibility, the ClickInText action cannot work.
 
 ### Required permissions
 
-- 'ACCESSIBILITY_SERVICE'
-- (Optional) 'SYSTEM_ALERT_WINDOW' if overlays are used
+- `ACCESSIBILITY_SERVICE`
+- (Optional) `SYSTEM_ALERT_WINDOW` if overlays are used
 
 ## Detailed description
 
 The **ClickInText** mode of ScreenAutomator searches visible elements using:
 
-- 'Text' (visible label)
-- 'contentDescription'
-- 'tooltipText'
+- `Text` (visible label)
+- `contentDescription`
+- `tooltipText`
 
 Then it performs a click when a matching element is found according to the chosen comparison rule.
 
@@ -77,7 +77,9 @@ Its purpose is interaction, not data extraction.
 
 Must be exactly:
 
+```json
 "Action_type": "ClickInText"
+```
 
 ## 2. `TextSelector`
 
@@ -89,7 +91,9 @@ Defines **where** the text is taken from.
 
 ### Example
 
+```json
 "TextSelector": "Text"
+```
 
 ## 3. `CompareType`
 
@@ -101,7 +105,9 @@ Defines **how** the text comparison is done.
 
 ### Example
 
+```json
 "CompareType": "Contain"
+```
 
 ## 4. `index`
 
@@ -109,7 +115,9 @@ If multiple elements match, this selects the nth one.
 
 ### Example
 
+```json
 "index": "1"
+```
 
 ## 5. `enterText`
 
@@ -117,7 +125,9 @@ Optional text to enter after clicking, if the target is editable.
 
 ### Example
 
+```json
 "enterText": "username123"
+```
 
 ## Exceptions
 
@@ -128,6 +138,7 @@ Optional text to enter after clicking, if the target is editable.
 
 # Complete JSON example
 
+```json
 {
   "ScreenAutomator": [
     {
@@ -159,3 +170,4 @@ Optional text to enter after clicking, if the target is editable.
     }
   ]
 }
+```

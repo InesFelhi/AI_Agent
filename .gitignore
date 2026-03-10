@@ -2,8 +2,19 @@
 venv/
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
 
 # IDE files
 .vscode/
 *.idea/
+
+# Project-specific
+DescriptionAIAgent/
+logs/
+.pytest_cache/
+
+# Python cache
+*/__pycache__/
+**/__pycache__/
 

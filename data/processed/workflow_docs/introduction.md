@@ -17,6 +17,7 @@ The workflow engine traverses the graph starting from START, follows the links, 
 
 **Example JSON structure:**
 
+```json
 {
   "Start": [
     {
@@ -96,9 +97,11 @@ The workflow engine traverses the graph starting from START, follows the links, 
     }
   ]
 }
+```
 
 **Graph visualization:**
 
+```
 START (id:0)
     ↓
 TextReport (id:1)
@@ -106,6 +109,7 @@ TextReport (id:1)
 CompareNumber (id:2)
     ├─→ TRUE → END (id:100)
     └─→ FALSE → TextReport (id:1) [loop back]
+```
 
 ## Understanding Links (Connections)
 
@@ -117,10 +121,12 @@ The **Links** section defines how nodes are connected and the execution flow:
 
 Connects one task directly to the next:
 
+```json
 {
   "from": "0",
   "to": "1"
 }
+```
 
 **Meaning**: After node 0 completes, immediately execute node 1.
 
@@ -128,11 +134,13 @@ Connects one task directly to the next:
 
 Branches execution based on condition result:
 
+```json
 {
   "from": "2",
   "true": "100",
   "false": "1"
 }
+```
 
 **Meaning**:
 
@@ -153,6 +161,7 @@ The workflow engine:
 
 ### Scenario: Check temperature and log result
 
+```json
 {
   "Start": [
     {
@@ -229,23 +238,21 @@ The workflow engine:
     }
   ]
 }
+```
 
 ### Graph Flow:
 
-flowchart TD
-    Start([START id:0<br/>temperature=25]) --> TextReport1[TextReport id:1<br/>Log Temperature]
-    TextReport1 --> CompareNum[CompareNumber id:2<br/>25 > 30?]
-    CompareNum -->|TRUE| TextReport3[TextReport id:3<br/>Too Hot Alert]
-    CompareNum -->|FALSE| TextReport4[TextReport id:4<br/>Normal Temperature]
-    TextReport3 --> End[END id:100]
-    TextReport4 --> End
-    
-    style Start fill:#e3f2fd
-    style End fill:#c8e6c9
-    style CompareNum fill:#fff9c4
-    style TextReport1 fill:#f3e5f5
-    style TextReport3 fill:#ffe0e0
-    style TextReport4 fill:#e0f0e0
+Diagram Nodes:
+- TextReport1: TextReport id:1 Log Temperature
+- CompareNum: CompareNumber id:2 25 > 30?
+- TextReport3: TextReport id:3 Too Hot Alert
+- TextReport4: TextReport id:4 Normal Temperature
+- End: END id:100
+
+Workflow Flow:
+- TextReport id:1 Log Temperature → CompareNumber id:2 25 > 30?
+- TextReport id:3 Too Hot Alert → END id:100
+- TextReport id:4 Normal Temperature → END id:100
 
 ## Workflow Components Summary
 
@@ -263,6 +270,7 @@ Linear execution: START → Task 1 → Task 2 → END
 
 **JSON Example:**
 
+```json
 {
   "Start": [{"id": "0"}],
   "CmdStage": [{"id": "1", "cmd_text": "ping -c 1 8.8.8.8"}],
@@ -274,18 +282,18 @@ Linear execution: START → Task 1 → Task 2 → END
     {"from": "2", "to": "100"}
   ]
 }
+```
 
 **Mermaid Diagram:**
 
-flowchart TD
-    Start([START id:0]) --> Task1[CmdStage id:1<br/>ping]
-    Task1 --> Task2[Sleep id:2<br/>1000ms]
-    Task2 --> End[END id:100]
-    
-    style Start fill:#e3f2fd
-    style End fill:#c8e6c9
-    style Task1 fill:#f3e5f5
-    style Task2 fill:#fff9c4
+Diagram Nodes:
+- Task1: CmdStage id:1 ping
+- Task2: Sleep id:2 1000ms
+- End: END id:100
+
+Workflow Flow:
+- CmdStage id:1 ping → Sleep id:2 1000ms
+- Sleep id:2 1000ms → END id:100
 
 ### Branching Flow (Conditional)
 
@@ -293,6 +301,7 @@ Branching execution with true/false paths: START → Task 1 → Condition → (T
 
 **JSON Example:**
 
+```json
 {
   "Start": [{"id": "0"}],
   "CmdStage": [{"id": "1", "cmd_text": "ping -c 1 8.8.8.8", "cmd_error_output": "$ERROR"}],
@@ -310,20 +319,18 @@ Branching execution with true/false paths: START → Task 1 → Condition → (T
     {"from": "4", "to": "100"}
   ]
 }
+```
 
 **Mermaid Diagram:**
 
-flowchart TD
-    Start([START id:0]) --> Task1[CmdStage id:1<br/>ping]
-    Task1 --> Condition[CompareText id:2<br/>ERROR contains unreachable?]
-    Condition -->|TRUE| Task3[TextReport id:3<br/>Network Down]
-    Condition -->|FALSE| Task4[TextReport id:4<br/>Network Up]
-    Task3 --> End[END id:100]
-    Task4 --> End
-    
-    style Start fill:#e3f2fd
-    style End fill:#c8e6c9
-    style Condition fill:#fff9c4
-    style Task1 fill:#f3e5f5
-    style Task3 fill:#ffe0e0
-    style Task4 fill:#e0f0e0
+Diagram Nodes:
+- Task1: CmdStage id:1 ping
+- Condition: CompareText id:2 ERROR contains unreachable?
+- Task3: TextReport id:3 Network Down
+- Task4: TextReport id:4 Network Up
+- End: END id:100
+
+Workflow Flow:
+- CmdStage id:1 ping → CompareText id:2 ERROR contains unreachable?
+- TextReport id:3 Network Down → END id:100
+- TextReport id:4 Network Up → END id:100

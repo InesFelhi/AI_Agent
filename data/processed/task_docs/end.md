@@ -2,6 +2,6 @@
 
 ## Summary
 
-- **Internal name**: 'End'
+- **Internal name**: `End`
 - **Category**: Workflow Control
 - **Purpose**: Mark the end of a workflow execution.

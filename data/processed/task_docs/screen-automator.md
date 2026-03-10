@@ -2,7 +2,7 @@
 
 ## Summary
 
-- **Internal name**: 'SCREEN_AUTOMATOR'
+- **Internal name**: `SCREEN_AUTOMATOR`
 - **Category**: Screen Automation / Accessibility
 - **Purpose**: Execute predefined Android system actions (Home, Back, Recents, Notifications, Screenshot, etc.) using the Android AccessibilityService.
 
@@ -10,10 +10,10 @@ This task allows an AndroMate workflow to control system navigation and system U
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 
 ### Supported manufacturers
 
@@ -21,8 +21,8 @@ This task allows an AndroMate workflow to control system navigation and system U
 
 ### Required permissions
 
-- 'ACCESSIBILITY_SERVICE'
-- (Optionally) 'WRITE_SECURE_SETTINGS' depending on OEM/system behavior
+- `ACCESSIBILITY_SERVICE`
+- (Optionally) `WRITE_SECURE_SETTINGS` depending on OEM/system behavior
 
 ## Detailed description
 
@@ -30,21 +30,21 @@ The **GlobalAction** mode of ScreenAutomator executes **high-level Android syste
 
 Typical use cases:
 
-  - HOME, BACK, RECENTS
 - Navigate in the system:
+  - HOME, BACK, RECENTS
+- Open or dismiss system panels:
   - Notifications panel
   - Quick settings
   - Power dialog
   - All apps / launcher app list
-- Open or dismiss system panels:
+- Perform device operations:
   - Lock the screen
   - Take a screenshot
   - Toggle split-screen
-- Perform device operations:
+- Simulate specific keys / D-Pad / media control:
   - D-Pad (up, down, left, right, center)
   - Media play/pause
   - Headset hook key
-- Simulate specific keys / D-Pad / media control:
 
 The exact list of supported actions depends on the **Android version** (min SDK per action) and the device manufacturer.
 
@@ -68,11 +68,13 @@ Its purpose is to **perform** an action (side-effect on UI), not to produce cont
 
 Indicates the ScreenAutomator mode to use.
 
-- For this README: it must be set to '"GlobalAction"'.
+- For this README: it must be set to `"GlobalAction"`.
 
 ### Example
 
+```json
 "Action_type : GlobalAction"
+```
 
 ## 2. `GlobalAction_type`
 
@@ -106,6 +108,7 @@ This value is stored as an **internal integer / enum** and mapped to Android’s
 
 # Complete JSON example
 
+```json
 {
   "ScreenAutomator": [
     {
@@ -134,3 +137,4 @@ This value is stored as an **internal integer / enum** and mapped to Android’s
     }
   ]
 }
+```

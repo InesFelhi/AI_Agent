@@ -2,20 +2,20 @@
 
 ## Summary
 
-- **Internal name**: 'HttpRequest'
+- **Internal name**: `HttpRequest`
 - **Category**: Communication
 - **Purpose**: Perform an HTTP request (GET or POST) with configurable
 parameters, headers, timeouts, and optional JSON body.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
-  - 'INTERNET'
-  - 'ACCESS_NETWORK_STATE'
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 - **Required permissions**:
+  - `INTERNET`
+  - `ACCESS_NETWORK_STATE`
 
 # Input parameters
 
@@ -44,41 +44,26 @@ parameters, headers, timeouts, and optional JSON body.
 
 The following diagram illustrates the actual implementation based on Android code:
 
-flowchart TD
-    Start([Start HttpRequestTask]) --> ResolveParams[🔄 Resolve Parameters<br/>URL, headers, params, body]
-    
-    ResolveParams --> ValidateURL{URL<br/>valid ?}
-    
-    ValidateURL -->|No| E1[❌ HTTP_REQUEST_INVALID_URL]
-    ValidateURL -->|Yes| CreateClient[🔗 Create HttpClient<br/>Method, timeouts, debug]
-    
-    CreateClient --> Execute[📡 Execute HTTP Request<br/>GET or POST]
-    
-    Execute -->|IOException| E2[❌ HTTP_REQUEST_IO_EXCEPTION_ERROR]
-    Execute -->|Timeout| E3[❌ HTTP_REQUEST_TIMEOUT]
-    Execute -->|Success| GetResponse[📥 Get Response<br/>Body + HTTP Code]
-    
-    GetResponse --> StoreResult[💾 Store Result<br/>HttpRequestResult]
-    
-    StoreResult --> LogReport[📋 Log Report<br/>ReportSection]
-    
-    LogReport --> Success([✅ Success])
-    
-    E1 --> Error([❌ Exception])
-    E2 --> Error
-    E3 --> Error
-    
-    style Start fill:#e3f2fd
-    style Success fill:#c8e6c9
-    style Error fill:#ffcdd2
-    style ResolveParams fill:#fff9c4
-    style CreateClient fill:#f3e5f5
-    style Execute fill:#f3e5f5
-    style GetResponse fill:#fff9c4
-    style StoreResult fill:#c8e6c9
-    style E1 fill:#ffcdd2
-    style E2 fill:#ffcdd2
-    style E3 fill:#ffcdd2
+Diagram Nodes:
+- ResolveParams: 🔄 Resolve Parameters URL, headers, params, body
+- E1: ❌ HTTP_REQUEST_INVALID_URL
+- CreateClient: 🔗 Create HttpClient Method, timeouts, debug
+- Execute: 📡 Execute HTTP Request GET or POST
+- E2: ❌ HTTP_REQUEST_IO_EXCEPTION_ERROR
+- E3: ❌ HTTP_REQUEST_TIMEOUT
+- GetResponse: 📥 Get Response Body + HTTP Code
+- StoreResult: 💾 Store Result HttpRequestResult
+- LogReport: 📋 Log Report ReportSection
+
+Workflow Flow:
+- 🔄 Resolve Parameters URL, headers, params, body → ValidateURL
+- 🔗 Create HttpClient Method, timeouts, debug → 📡 Execute HTTP Request GET or POST
+- 📥 Get Response Body + HTTP Code → 💾 Store Result HttpRequestResult
+- 💾 Store Result HttpRequestResult → 📋 Log Report ReportSection
+- 📋 Log Report ReportSection → Success
+- ❌ HTTP_REQUEST_INVALID_URL → Error
+- ❌ HTTP_REQUEST_IO_EXCEPTION_ERROR → Error
+- ❌ HTTP_REQUEST_TIMEOUT → Error
 
 **How it works:**
 
@@ -99,7 +84,9 @@ Target endpoint URL.
 
 ### Example
 
+```json
 "url": "https://api.example.com/monitoring"
+```
 
 ## 2. Input parameter: `method`
 
@@ -107,15 +94,17 @@ HTTP method used for the request.
 
 ### Default value
 
-'GET'
+`GET`
 
 ### Possible values
 
-'GET', 'POST'
+`GET`, `POST`
 
 ### Example
 
+```json
 "method": "POST"
+```
 
 ## 3. Input parameter: `connection_timeout`
 
@@ -123,7 +112,7 @@ Maximum time (ms) to establish connection.
 
 ### Default value
 
-'10000'
+`10000`
 
 ## 4. Input parameter: `read_timeout`
 
@@ -131,7 +120,7 @@ Maximum time (ms) to wait for server response.
 
 ### Default value
 
-'10000'
+`10000`
 
 ## 5. Input parameter: `http_debug`
 
@@ -139,7 +128,7 @@ Enable verbose HTTP logging.
 
 ### Default value
 
-'false'
+`false`
 
 ## 6. Input parameter: `request_body_json`
 
@@ -147,7 +136,9 @@ Optional JSON body (used mainly with POST).
 
 ### Example
 
+```json
 "request_body_json": "{ \"deviceId\": \"$DEVICE_ID\" }"
+```
 
 ## 7. Input parameter: `parameters`
 
@@ -155,9 +146,11 @@ List of query parameters.
 
 ### Example
 
+```json
 "parameters": [
   { "param_name": "deviceId", "value": "$DEVICE_ID" }
 ]
+```
 
 ## 8. Input parameter: `headers`
 
@@ -165,9 +158,11 @@ List of HTTP headers.
 
 ### Example
 
+```json
 "headers": [
   { "param_name": "Authorization", "value": "Bearer $TOKEN" }
 ]
+```
 
 # Output details
 
@@ -185,6 +180,7 @@ Contains HTTP status code returned by server.
 
 # Complete JSON example
 
+```json
 {
   "HttpRequest": [
     {
@@ -208,3 +204,4 @@ Contains HTTP status code returned by server.
     }
   ]
 }
+```
