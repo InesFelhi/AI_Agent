@@ -1,6 +1,5 @@
+# document_cleaner_final.py
 """
-document_cleaner.py
-
 Markdown Document Cleaner for AI Agent RAG processing.
 
 Responsibilities:
@@ -8,21 +7,11 @@ Responsibilities:
 - Preserve header hierarchy
 - Convert tables to readable semantic text
 - Preserve lists (including nested lists)
-- Preserve code block content (remove fences)
+- Preserve code block content
 - Preserve inline code as semantic content
-- Remove markdown noise
+- Convert Mermaid and flowchart diagrams into readable semantic text
+- Remove Markdown noise
 - Output clean Markdown ready for chunking & embedding
-- Use module-specific logger for logging in production
-
-Usage:
-    from pathlib import Path
-    from src.ingestion_pipeline.document_cleaner import DocumentCleaner
-
-    cleaner = DocumentCleaner()
-    cleaner.clean_file(
-        input_path=Path("raw_task.md"),
-        output_path=Path("clean_task.md")
-    )
 """
 
 from __future__ import annotations
@@ -30,43 +19,26 @@ from pathlib import Path
 from typing import List, Tuple
 from markdown_it import MarkdownIt
 from markdown_it.token import Token
-from src.utilities.logger import get_module_logger  # Corrected logger import
+import re
+from src.utilities.logger import get_module_logger
 
-# Module-specific logger
 logger = get_module_logger("document_cleaner")
 
-
 class DocumentCleaner:
-    """Clean and normalize Markdown documents for RAG processing with nested lists and inline code preservation."""
+    """Clean and normalize Markdown documents for RAG processing."""
 
     def __init__(self) -> None:
-        """
-        Initialize the Markdown parser with table support enabled.
-        """
         self._parser = MarkdownIt("commonmark").enable("table")
 
-    # ---------------- Public API ----------------
+    # ---------- Public API ----------
     def clean_file(self, input_path: Path, output_path: Path) -> None:
-        """
-        Clean a Markdown file and write the processed version.
-
-        Args:
-            input_path (Path): Path to raw Markdown file
-            output_path (Path): Path to cleaned Markdown output
-
-        Raises:
-            FileNotFoundError: If the input file does not exist
-            Exception: If any unexpected error occurs during cleaning
-        """
         logger.info("Cleaning started: %s", input_path)
         if not input_path.exists():
             logger.error("File not found: %s", input_path)
             raise FileNotFoundError(f"{input_path} not found")
-
         try:
             raw_text = input_path.read_text(encoding="utf-8")
             cleaned_text = self._clean_markdown(raw_text)
-
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(cleaned_text, encoding="utf-8")
             logger.info("Cleaning completed: %s", output_path)
@@ -74,21 +46,12 @@ class DocumentCleaner:
             logger.exception("Unexpected error during document cleaning")
             raise
 
-    # ---------------- Internal Processing ----------------
+    # ---------- Core Cleaning ----------
     def _clean_markdown(self, text: str) -> str:
-        """
-        Process raw Markdown text and return cleaned version.
-
-        Args:
-            text (str): Raw Markdown content
-
-        Returns:
-            str: Cleaned Markdown text
-        """
         tokens: List[Token] = self._parser.parse(text)
         cleaned_lines: List[str] = []
-
         i = 0
+
         while i < len(tokens):
             token = tokens[i]
 
@@ -136,12 +99,25 @@ class DocumentCleaner:
                 i = new_index
                 continue
 
-            # ---------- CODE BLOCK (FENCED) ----------
+            # ---------- CODE BLOCK / MERMAID ----------
             if token.type == "fence":
                 code_content = token.content.strip()
-                if code_content:
-                    cleaned_lines.append(code_content)
-                    cleaned_lines.append("")
+                info = token.info.strip()
+                if info.lower() == "mermaid":
+                    diagram_text = self._convert_mermaid(code_content)
+                    if diagram_text:
+                        cleaned_lines.append(diagram_text)
+                        cleaned_lines.append("")
+                else:
+                    if code_content:
+                        # Preserve backticks with code language marker
+                        if info:
+                            cleaned_lines.append(f"```{info}")
+                        else:
+                            cleaned_lines.append("```")
+                        cleaned_lines.append(code_content)
+                        cleaned_lines.append("```")
+                        cleaned_lines.append("")
                 i += 1
                 continue
 
@@ -149,43 +125,18 @@ class DocumentCleaner:
 
         return "\n".join(cleaned_lines).strip()
 
-    # ---------------- Inline Code Handling ----------------
+    # ---------- Inline Code ----------
     def _extract_inline_code(self, token: Token) -> str:
-        """
-        Preserve inline code by converting backticks to single quotes.
-
-        Args:
-            token (Token): Markdown inline token
-
-        Returns:
-            str: String with inline code preserved as semantic content
-        """
         content = token.content
         for child in token.children or []:
             if child.type == "code_inline":
-                content = content.replace(f"`{child.content}`", f"'{child.content}'")
+                content = content.replace(f"{child.content}", f"{child.content}")
         return content.strip()
 
-    # ---------------- List Extraction (Nested Support) ----------------
+    # ---------- List Extraction ----------
     def _extract_list(
-        self,
-        tokens: List[Token],
-        start_index: int,
-        ordered: bool = False,
-        indent: int = 0
+        self, tokens: List[Token], start_index: int, ordered: bool = False, indent: int = 0
     ) -> Tuple[List[str], int]:
-        """
-        Extract a bullet or ordered list from tokens, supporting nested lists.
-
-        Args:
-            tokens (List[Token]): List of Markdown tokens
-            start_index (int): Current index in tokens
-            ordered (bool): True if ordered list, False if bullet
-            indent (int): Number of spaces for nested indentation
-
-        Returns:
-            Tuple[List[str], int]: List of lines and new index in tokens
-        """
         lines: List[str] = []
         i = start_index
         counter = 1
@@ -194,6 +145,7 @@ class DocumentCleaner:
         while i < len(tokens) and tokens[i].type != list_close_type:
             if tokens[i].type == "list_item_open":
                 item_content = ""
+                nested_items: List[str] = []  # Store nested items separately
                 j = i + 1
                 while tokens[j].type != "list_item_close":
                     if tokens[j].type == "paragraph_open":
@@ -202,15 +154,17 @@ class DocumentCleaner:
                     elif tokens[j].type in ("bullet_list_open", "ordered_list_open"):
                         nested_ordered = tokens[j].type == "ordered_list_open"
                         nested_lines, new_j = self._extract_list(tokens, j, nested_ordered, indent + 2)
-                        lines.extend(nested_lines)
+                        nested_items.extend(nested_lines)  # Store nested items
                         j = new_j
                         continue
                     else:
                         j += 1
-
+                # Add parent item first, then nested items
                 prefix = (" " * indent + f"{counter}. " if ordered else " " * indent + "- ")
                 if item_content:
                     lines.append(prefix + item_content)
+                # Then add nested items (maintains parent -> children order)
+                lines.extend(nested_items)
                 counter += 1
                 i = j + 1
                 continue
@@ -218,21 +172,10 @@ class DocumentCleaner:
 
         return lines, i + 1
 
-    # ---------------- Table Extraction ----------------
+    # ---------- Table Extraction ----------
     def _extract_table(self, tokens: List[Token], start_index: int) -> Tuple[str, int]:
-        """
-        Convert Markdown table into readable semantic text.
-
-        Args:
-            tokens (List[Token]): List of Markdown tokens
-            start_index (int): Current index in tokens
-
-        Returns:
-            Tuple[str, int]: String representation of table and new index
-        """
         rows: List[List[str]] = []
         i = start_index
-
         while i < len(tokens) and tokens[i].type != "table_close":
             if tokens[i].type == "tr_open":
                 row: List[str] = []
@@ -260,3 +203,51 @@ class DocumentCleaner:
             lines.append("- " + " | ".join(elements))
 
         return "\n".join(lines), i + 1
+
+    # ---------- Mermaid / Flowchart Conversion ----------
+    def _convert_mermaid(self, diagram: str) -> str:
+        nodes = {}
+        relations = []
+
+        lines = diagram.splitlines()
+
+        # Extract nodes
+        node_pattern = re.compile(r'(\w+)\s*\["?(.*?)"?\]')
+        for line in lines:
+            line = line.strip()
+            match = node_pattern.search(line)
+            if match:
+                node_id = match.group(1)
+                label = match.group(2)
+                label = re.sub(r"<br\s*/?>", " ", label)
+                label = label.replace('"', "").strip()
+                nodes[node_id] = label
+
+        # Extract edges
+        edge_pattern = re.compile(r'(\w+)\s*[-.=]+>\s*(\w+)')
+        for line in lines:
+            line = line.strip()
+            match = edge_pattern.search(line)
+            if match:
+                left = match.group(1)
+                right = match.group(2)
+                left_label = nodes.get(left, left)
+                right_label = nodes.get(right, right)
+                relations.append(f"{left_label} → {right_label}")
+
+        # Build semantic text
+        output = []
+        if nodes:
+            output.append("Diagram Nodes:")
+            for node_id, label in nodes.items():
+                output.append(f"- {node_id}: {label}")
+            output.append("")
+
+        if relations:
+            output.append("Workflow Flow:")
+            for rel in relations:
+                output.append(f"- {rel}")
+
+        if output:
+            return "\n".join(output)
+        return "Diagram describing workflow steps."

@@ -167,7 +167,7 @@ class Chunker:
 
             chunk_body = " ".join(words[start:end])
 
-            # 🔥 Inject header inside chunk content
+            #  Inject header inside chunk content
             chunk_text = header_prefix + chunk_body
 
             chunk_id = str(uuid.uuid4())

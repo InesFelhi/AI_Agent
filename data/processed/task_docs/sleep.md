@@ -2,20 +2,20 @@
 
 ## Summary
 
-- **Internal name**: 'SLEEP'
+- **Internal name**: `SLEEP`
 - **Category**: Time
 - **Purpose**: Pause the workflow execution for a specified duration.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android version**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android version tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
-  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android version**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android version tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 - **Supported manufacturers**:
-  - None
+  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
 - **Required permissions**:
+  - None
 
 ## Detailed description
 
@@ -38,19 +38,17 @@ It is used to:
 
 # Flowchart
 
-flowchart TD
-    Start([Start Sleep]) --> Sleep[⏸️ Sleep<br/>Time_sleep ms]
-    
-    Sleep --> Success([✅ Success])
-    
-    style Start fill:#e3f2fd
-    style Success fill:#c8e6c9
-    style Sleep fill:#f3e5f5
+Diagram Nodes:
+- Sleep: ⏸️ Sleep Time_sleep ms
+
+Workflow Flow:
+- ⏸️ Sleep Time_sleep ms → Success
 
 **Note**: This task does not throw any exceptions.
 
 ## Full JSON example
 
+```json
 {
   "Sleep": [
     {
@@ -60,3 +58,4 @@ flowchart TD
     }
   ]
 }
+```

@@ -8,15 +8,16 @@ Variables are **named containers** that store data produced by tasks and can be 
 
 Variables must be **declared in the START node** with these characteristics:
 
-- **Naming**: Must start with '$' (mandatory prefix)
+- **Naming**: Must start with `$` (mandatory prefix)
 - **Scope**: Available throughout the entire workflow
-  - 'String' - Text values
-  - 'Double' - Decimal numbers
-  - 'JSON' - Complex structured data
 - **Types Supported**:
+  - `String` - Text values
+  - `Double` - Decimal numbers
+  - `JSON` - Complex structured data
 
 **Example: Variable Declaration in START Node**
 
+```json
 {
   "Start": [
     {
@@ -41,11 +42,13 @@ Variables must be **declared in the START node** with these characteristics:
     }
   ]
 }
+```
 
 ## Task Output Registration
 
 Task outputs can be **registered into variables** declared in START for reuse in other tasks:
 
+```json
 {
   "CmdStage": [
     {
@@ -55,18 +58,20 @@ Task outputs can be **registered into variables** declared in START for reuse in
     }
   ]
 }
+```
 
 **How it works:**
 
-1. Declare variable '$PING_ERROR' in START node
+1. Declare variable `$PING_ERROR` in START node
 2. Task CmdStage (id:1) executes ping command
-3. Error output is automatically stored in '$PING_ERROR'
+3. Error output is automatically stored in `$PING_ERROR`
 4. Variable becomes available for subsequent tasks
 
 ## Variable Usage in Other Tasks
 
 Once a variable is populated by a task output, it can be used in subsequent tasks:
 
+```json
 {
   "CompareText": [
     {
@@ -77,10 +82,11 @@ Once a variable is populated by a task output, it can be used in subsequent task
     }
   ]
 }
+```
 
 **Variable references:**
 
-- Use the variable name with '$' prefix: '$PING_ERROR'
+- Use the variable name with `$` prefix: `$PING_ERROR`
 - Can be used in any parameter that accepts variable values
 - Variable persists until workflow ends
 
@@ -94,8 +100,10 @@ Once a variable is populated by a task output, it can be used in subsequent task
 
 Store text data produced by commands or APIs:
 
+```json
 "variableName": "$ERROR_MESSAGE",
 "variableValue": ""
+```
 
 Usage: Error messages, command outputs, API responses
 
@@ -103,8 +111,10 @@ Usage: Error messages, command outputs, API responses
 
 Store decimal numbers for arithmetic operations and comparisons:
 
+```json
 "variableName": "$TEMPERATURE",
 "variableValue": "0.0"
+```
 
 Usage: Temperature values, sensor readings, metrics
 
@@ -112,13 +122,16 @@ Usage: Temperature values, sensor readings, metrics
 
 Store complex structured data for detailed processing:
 
+```json
 "variableName": "$API_RESPONSE",
 "variableValue": "{}"
+```
 
 Usage: API responses, data arrays, nested objects
 
 ## Complete Workflow Example with Variables
 
+```json
 {
   "Start": [
     {
@@ -181,23 +194,20 @@ Usage: API responses, data arrays, nested objects
     {"from": "4", "to": "100"}
   ]
 }
+```
 
 ## Variable Data Flow
 
-flowchart LR
-    Start["START<br/>Declare Variables<br/>$PING_ERROR<br/>$NETWORK_STATUS<br/>$RESPONSE_TIME"] -->|"Register output"| Task1["CmdStage<br/>ping -c 1 8.8.8.8<br/>→ $PING_ERROR"]
-    Task1 -->|"Use variable"| Task2["CompareText<br/>$PING_ERROR contains<br/>unreachable?"]
-    Task2 -->|"TRUE: Use variable"| Task3["TextReport<br/>Display $PING_ERROR"]
-    Task2 -->|"FALSE: Use variable"| Task4["TextReport<br/>Display $NETWORK_STATUS"]
-    Task3 --> End["END"]
-    Task4 --> End
-    
-    style Start fill:#e3f2fd
-    style Task1 fill:#f3e5f5
-    style Task2 fill:#fff9c4
-    style Task3 fill:#ffe0e0
-    style Task4 fill:#e0f0e0
-    style End fill:#c8e6c9
+Diagram Nodes:
+- Start: START Declare Variables $PING_ERROR $NETWORK_STATUS $RESPONSE_TIME
+- Task2: CompareText $PING_ERROR contains unreachable?
+- Task3: TextReport Display $PING_ERROR
+- Task4: TextReport Display $NETWORK_STATUS
+- End: END
+
+Workflow Flow:
+- TextReport Display $PING_ERROR → END
+- TextReport Display $NETWORK_STATUS → END
 
 ## Best Practices
 
@@ -205,6 +215,7 @@ flowchart LR
 
 Declare variables upfront in the START node:
 
+```json
 {
   "Start": [
     {
@@ -216,30 +227,37 @@ Declare variables upfront in the START node:
     }
   ]
 }
+```
 
 ### 2. Use Descriptive Variable Names
 
+```json
 "$PING_ERROR"      // Good: Clear purpose
 "$NETWORK_STATUS"  // Good: Descriptive
 
 "$x"               // Bad: Not descriptive
 "$var1"            // Bad: Generic name
+```
 
 ### 3. Initialize with Appropriate Defaults
 
+```json
 "$ERROR_MSG": ""           // String: empty string
 "$TEMPERATURE": "0.0"      // Double: zero value
 "$RESPONSE": "{}"          // JSON: empty object
+```
 
 ### 4. Use Variables for Data Continuity
 
 Pass data between tasks using variables instead of hardcoding values:
 
+```json
 // ✅ Good: Use variable
 "text_x": "$PING_ERROR"
 
 // ❌ Bad: Hardcoded value
 "text_x": "Network unreachable"
+```
 
 ## Variable Lifecycle
 
@@ -253,27 +271,33 @@ Pass data between tasks using variables instead of hardcoding values:
 
 ### Case 1: Error Handling
 
+```json
 {
   "CmdStage": [{"id": "1", "cmd_error_output": "$ERROR"}],
   "CompareText": [
     {"id": "2", "text_x": "$ERROR", "text_y": "failed"}
   ]
 }
+```
 
 ### Case 2: Conditional Branching
 
+```json
 {
   "CmdStage": [{"id": "1", "cmd_result_output": "$RESULT"}],
   "CompareNumber": [
     {"id": "2", "num_x": "$RESULT", "num_y": "100"}
   ]
 }
+```
 
 ### Case 3: Data Passing
 
+```json
 {
   "HttpRequest": [{"id": "1", "response_output": "$API_DATA"}],
   "TextReport": [
     {"id": "2", "texte": "Response: $API_DATA"}
   ]
 }
+```

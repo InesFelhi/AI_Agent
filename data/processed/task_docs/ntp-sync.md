@@ -2,20 +2,20 @@
 
 ## Summary
 
-- **Internal name**: 'SyncNtp'
+- **Internal name**: `SyncNtp`
 - **Category**: Time
 - **Purpose**: Synchronize device time with an NTP server to get accurate network time offset and round-trip time (RTT).
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android version**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android version tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
-  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android version**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android version tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 - **Supported manufacturers**:
-  - 'INTERNET'
+  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
 - **Required permissions**:
+  - `INTERNET`
 
 ## Detailed description
 
@@ -31,7 +31,7 @@ It is used to:
 ### Implementation details
 
 - **RFC 5905 compliant**: Full SNTP (Simple Network Time Protocol) implementation
-- **Monotonic safe**: Uses 'SystemClock.elapsedRealtime()' for accurate timing
+- **Monotonic safe**: Uses `SystemClock.elapsedRealtime()` for accurate timing
 - **RTT filtering**: Rejects responses with invalid RTT (> 1000 ms)
 - **Timestamp validation**: Validates originate timestamp to ensure response authenticity
 - **Timeout handling**: Configurable timeout for the NTP request
@@ -51,33 +51,20 @@ It is used to:
 
 # Flowchart
 
-flowchart TD
-    Start([Start NTP Sync]) --> ResolveParams[🔄 Resolve Parameters<br/>NTP server]
-    
-    ResolveParams --> SendRequest[📡 Send NTP Request<br/>Timeout: 5000ms]
-    
-    SendRequest -->|Success| Validate[✓ Validate Response<br/>RFC 5905 checks]
-    SendRequest -->|Timeout/Error| E1[❌ NTP_CLIENT_ERROR]
-    
-    Validate -->|Valid| CalcMetrics[🔢 Calculate Offset & RTT<br/>Validate RTT &lt;= 1000ms]
-    Validate -->|Invalid| E1
-    
-    CalcMetrics -->|RTT Invalid| E1
-    CalcMetrics -->|Success| StoreResult[💾 Store Result<br/>NtpTaskResult]
-    
-    StoreResult --> LogReport[📋 Log Report<br/>Offset + RTT]
-    
-    LogReport --> Success([✅ Success])
-    
-    E1 --> Error([❌ Exception])
-    
-    style Start fill:#e3f2fd
-    style Success fill:#c8e6c9
-    style Error fill:#ffcdd2
-    style SendRequest fill:#f3e5f5
-    style Validate fill:#fff9c4
-    style CalcMetrics fill:#fff9c4
-    style StoreResult fill:#c8e6c9
+Diagram Nodes:
+- ResolveParams: 🔄 Resolve Parameters NTP server
+- SendRequest: 📡 Send NTP Request Timeout: 5000ms
+- Validate: ✓ Validate Response RFC 5905 checks
+- E1: ❌ NTP_CLIENT_ERROR
+- CalcMetrics: 🔢 Calculate Offset & RTT Validate RTT &lt;= 1000ms
+- StoreResult: 💾 Store Result NtpTaskResult
+- LogReport: 📋 Log Report Offset + RTT
+
+Workflow Flow:
+- 🔄 Resolve Parameters NTP server → 📡 Send NTP Request Timeout: 5000ms
+- 💾 Store Result NtpTaskResult → 📋 Log Report Offset + RTT
+- 📋 Log Report Offset + RTT → Success
+- ❌ NTP_CLIENT_ERROR → Error
 
 **How it works:**
 
@@ -97,18 +84,20 @@ NTP server hostname to synchronize with.
 
 ### Default value
 
-'time.google.com' (Google Public NTP Server)
+`time.google.com` (Google Public NTP Server)
 
 ### Possible values
 
-- 'time.google.com' (Google)
-- 'pool.ntp.org' (NTP Pool Project)
-- 'time.nist.gov' (NIST)
+- `time.google.com` (Google)
+- `pool.ntp.org` (NTP Pool Project)
+- `time.nist.gov` (NIST)
 - Custom NTP server hostname
 
 ### Example
 
+```json
 "ntp_server": "pool.ntp.org"
+```
 
 # Output details
 
@@ -118,7 +107,9 @@ Time offset between device and NTP server in milliseconds.
 
 ### Example
 
+```json
 "ntp_offset_output": "$NTP_OFFSET"
+```
 
 ### Notes
 
@@ -132,7 +123,9 @@ Round-trip time (RTT) for NTP request in milliseconds.
 
 ### Example
 
+```json
 "ntp_rtt_output": "$NTP_RTT"
+```
 
 ### Notes
 
@@ -142,6 +135,7 @@ Round-trip time (RTT) for NTP request in milliseconds.
 
 # Complete JSON example
 
+```json
 {
   "SyncNtp": [
     {
@@ -153,11 +147,13 @@ Round-trip time (RTT) for NTP request in milliseconds.
     }
   ]
 }
+```
 
 # NTP Schema and Formulas
 
 ## Timestamps Diagram
 
+```
 t'₂         t'₃
           ↑           ↑
     ------|-----------|------  SERVER
@@ -166,6 +162,7 @@ t'₂         t'₃
          ↙            ↘
     ----•----•-----------•---- CLIENT
        t₁   δ₁          δ₂   t₄
+```
 
 **Schema Explanation:**
 
@@ -189,29 +186,34 @@ t'₂         t'₃
 
 ### Round-Trip Time (RTT)
 
+```
 RTT = (t₄ - t₁) - (t'₃ - t'₂)
     = δ₁ + δ₂
+```
 
 **Explanation**:
 
-- '(t₄ - t₁)' : Total elapsed time on client side
-- '(t'₃ - t'₂)' : Server processing time
+- `(t₄ - t₁)` : Total elapsed time on client side
+- `(t'₃ - t'₂)` : Server processing time
 - **Result** : Pure network latency (sum of both delays)
 
 ### Time Offset
 
+```
 Offset = ((t'₂ - t₁) + (t'₃ - t₄)) / 2
        = (δ₁ - δ₂) / 2
+```
 
 **Explanation**:
 
-- '(t'₂ - t₁)' : Offset at reception
-- '(t'₃ - t₄)' : Offset at transmission
+- `(t'₂ - t₁)` : Offset at reception
+- `(t'₃ - t₄)` : Offset at transmission
 - **Division by 2** : Average of both measurements
 - **Result** : Difference between server time and client time
 
 ### Concrete Example
 
+```
 Network delays: δ₁ = 50 ms, δ₂ = 50 ms
 Time offset: -100 ms
 
@@ -228,6 +230,7 @@ Offset = ((1050 - 1000) + (1100 - 1150)) / 2
        = (50 + (-50)) / 2
        = 0 / 2
        = 0 ms
+```
 
 ## Validations Performed
 
@@ -243,5 +246,5 @@ Offset = ((1050 - 1000) + (1100 - 1150)) / 2
 - **Timeout**: Fixed 5-second timeout for NTP request
 - **RTT Filter**: Responses with RTT > 1000 ms are rejected for mobile safety
 - **Timestamp Validation**: Originate timestamp must match within 5 ms tolerance
-- **Monotonic Timing**: Uses 'SystemClock.elapsedRealtime()' for accurate timing calculations
+- **Monotonic Timing**: Uses `SystemClock.elapsedRealtime()` for accurate timing calculations
 - **No Permissions Cache**: Internet permission required for NTP communication

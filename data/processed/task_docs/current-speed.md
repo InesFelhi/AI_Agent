@@ -2,24 +2,24 @@
 
 ## Summary
 
-- **Internal name**: 'Current Speed'
+- **Internal name**: `Current Speed`
 - **Category**: Location
 - **Purpose**: Measure the device's current speed using GPS updates,
 with configurable sampling, timeout, and accuracy filtering.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
-  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 - **Supported manufacturers**:
-  - 'ACCESS_FINE_LOCATION'
-  - 'ACCESS_COARSE_LOCATION'
-  - 'ACCESS_BACKGROUND_LOCATION' (if used in background)
-  - Location services must be enabled on the device
+  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
 - **Required permissions**:
+  - `ACCESS_FINE_LOCATION`
+  - `ACCESS_COARSE_LOCATION`
+  - `ACCESS_BACKGROUND_LOCATION` (if used in background)
+  - Location services must be enabled on the device
 
 ## Detailed description
 
@@ -46,81 +46,45 @@ The task handles:
 
 The following diagram illustrates the actual implementation based on Android code:
 
-flowchart TD
-    Start([Start GetCurrentSpeedTask]) --> CheckLocation{Location services<br/>enabled?}
-    
-    CheckLocation -->|No| E1[❌ GPS_DISABLED_LOCATION]
-    CheckLocation -->|Yes| CheckPerm{Has<br/>ACCESS_FINE_LOCATION<br/>permission?}
-    
-    CheckPerm -->|No| E2[❌ GPS_APP_HAS_NO_LOCATION_PERMISSION]
-    CheckPerm -->|Yes| GetLocA[📍 getCurrentLocation A<br/>Priority: HIGH_ACCURACY<br/>Timeout: location_timeout_ms]
-    
-    GetLocA -->|Timeout| E6[❌ GPS_GET_CURRENT_LOCATION_TIMEOUT]
-    GetLocA -->|Success| CheckNullA{locA == null?}
-    
-    CheckNullA -->|Yes| E3[❌ GPS_GET_CURRENT_LOCATION_NULL_VALUE]
-    CheckNullA -->|No| CheckAccA{locA.accuracy ><br/>max_speed_accuracy?}
-    
-    CheckAccA -->|Yes| E4[❌ GPS_LOCATION_ACCURACY_TOO_LOW<br/>accuracy too high]
-    CheckAccA -->|No| StoreA[Store:<br/>locA position<br/>tA = System.nanoTime]
-    
-    StoreA --> Sleep[⏱️ deepSleep<br/>sample_interval_ms<br/>default: 10000ms]
-    
-    Sleep --> GetLocB[📍 getCurrentLocation B<br/>Priority: HIGH_ACCURACY<br/>Timeout: location_timeout_ms]
-    
-    GetLocB -->|Timeout| E6
-    GetLocB -->|Success| CheckNullB{locB == null?}
-    
-    CheckNullB -->|Yes| E3
-    CheckNullB -->|No| CheckAccB{locB.accuracy ><br/>max_speed_accuracy?}
-    
-    CheckAccB -->|Yes| E4
-    CheckAccB -->|No| StoreB[Store:<br/>locB position<br/>tB = System.nanoTime]
-    
-    StoreB --> CalcDist[Calculate:<br/>distanceM = locA.distanceTo locB]
-    
-    CalcDist --> CalcDelta[Calculate:<br/>deltaSec = tB - tA / 1e9]
-    
-    CalcDelta --> CheckDelta{deltaSec <=<br/>MIN_GPS_DELTA_TIME<br/>0.2 sec?}
-    
-    CheckDelta -->|Yes| E5[❌ GPS_SPEED_DELTA_TIME_TOO_SMALL]
-    CheckDelta -->|No| CalcSpeed[Calculate:<br/>speedMps = distanceM / deltaSec<br/>speedKmh = speedMps × 3.6]
-    
-    CalcSpeed --> Round[Round to 3 decimals:<br/>speedKmh<br/>distanceM<br/>max locA.accuracy, locB.accuracy]
-    
-    Round --> SetResults[✅ Set TaskResult:<br/>currentSpeedKmH<br/>distanceM<br/>accuracyUsed]
-    
-    SetResults --> Success([Task completed successfully])
-    
-    E1 --> Error([Task failed with exception])
-    E2 --> Error
-    E3 --> Error
-    E4 --> Error
-    E5 --> Error
-    E6 --> Error
-    
-    GetLocA -.Runtime Exception.-> E7[❌ OTHER_ERROR]
-    GetLocB -.Runtime Exception.-> E7
-    CalcDist -.Runtime Exception.-> E7
-    CalcSpeed -.Runtime Exception.-> E7
-    E7 --> Error
-    
-    style Start fill:#e3f2fd
-    style Success fill:#c8e6c9
-    style Error fill:#ffcdd2
-    style CalcSpeed fill:#fff9c4
-    style CalcDist fill:#fff9c4
-    style CalcDelta fill:#fff9c4
-    style Round fill:#fff9c4
-    style Sleep fill:#f3e5f5
-    style SetResults fill:#c8e6c9
-    style E1 fill:#ffcdd2
-    style E2 fill:#ffcdd2
-    style E3 fill:#ffcdd2
-    style E4 fill:#ffcdd2
-    style E5 fill:#ffcdd2
-    style E6 fill:#ffcdd2
-    style E7 fill:#ffcdd2
+Diagram Nodes:
+- E1: ❌ GPS_DISABLED_LOCATION
+- E2: ❌ GPS_APP_HAS_NO_LOCATION_PERMISSION
+- GetLocA: 📍 getCurrentLocation A Priority: HIGH_ACCURACY Timeout: location_timeout_ms
+- E6: ❌ GPS_GET_CURRENT_LOCATION_TIMEOUT
+- E3: ❌ GPS_GET_CURRENT_LOCATION_NULL_VALUE
+- E4: ❌ GPS_LOCATION_ACCURACY_TOO_LOW accuracy too high
+- StoreA: Store: locA position tA = System.nanoTime
+- Sleep: ⏱️ deepSleep sample_interval_ms default: 10000ms
+- GetLocB: 📍 getCurrentLocation B Priority: HIGH_ACCURACY Timeout: location_timeout_ms
+- StoreB: Store: locB position tB = System.nanoTime
+- CalcDist: Calculate: distanceM = locA.distanceTo locB
+- CalcDelta: Calculate: deltaSec = tB - tA / 1e9
+- E5: ❌ GPS_SPEED_DELTA_TIME_TOO_SMALL
+- CalcSpeed: Calculate: speedMps = distanceM / deltaSec speedKmh = speedMps × 3.6
+- Round: Round to 3 decimals: speedKmh distanceM max locA.accuracy, locB.accuracy
+- SetResults: ✅ Set TaskResult: currentSpeedKmH distanceM accuracyUsed
+- E7: ❌ OTHER_ERROR
+
+Workflow Flow:
+- Store: locA position tA = System.nanoTime → ⏱️ deepSleep sample_interval_ms default: 10000ms
+- ⏱️ deepSleep sample_interval_ms default: 10000ms → 📍 getCurrentLocation B Priority: HIGH_ACCURACY Timeout: location_timeout_ms
+- Store: locB position tB = System.nanoTime → Calculate: distanceM = locA.distanceTo locB
+- Calculate: distanceM = locA.distanceTo locB → Calculate: deltaSec = tB - tA / 1e9
+- Calculate: deltaSec = tB - tA / 1e9 → CheckDelta
+- Calculate: speedMps = distanceM / deltaSec speedKmh = speedMps × 3.6 → Round to 3 decimals: speedKmh distanceM max locA.accuracy, locB.accuracy
+- Round to 3 decimals: speedKmh distanceM max locA.accuracy, locB.accuracy → ✅ Set TaskResult: currentSpeedKmH distanceM accuracyUsed
+- ✅ Set TaskResult: currentSpeedKmH distanceM accuracyUsed → Success
+- ❌ GPS_DISABLED_LOCATION → Error
+- ❌ GPS_APP_HAS_NO_LOCATION_PERMISSION → Error
+- ❌ GPS_GET_CURRENT_LOCATION_NULL_VALUE → Error
+- ❌ GPS_LOCATION_ACCURACY_TOO_LOW accuracy too high → Error
+- ❌ GPS_SPEED_DELTA_TIME_TOO_SMALL → Error
+- ❌ GPS_GET_CURRENT_LOCATION_TIMEOUT → Error
+- Exception → ❌ OTHER_ERROR
+- Exception → ❌ OTHER_ERROR
+- Exception → ❌ OTHER_ERROR
+- Exception → ❌ OTHER_ERROR
+- ❌ OTHER_ERROR → Error
 
 **How it works:**
 
@@ -175,7 +139,9 @@ updates.
 
 ### Example
 
+```json
 "location_timeout": 20000
+```
 
 ### Details
 
@@ -188,7 +154,9 @@ speed calculation.
 
 ### Example
 
+```json
 "sample_interval": 1000
+```
 
 ### Details
 
@@ -202,7 +170,9 @@ Defines the maximum allowed GPS speed accuracy threshold.
 
 ### Example
 
+```json
 "max_speed_accuracy": 5.0
+```
 
 ### Details
 
@@ -218,7 +188,9 @@ Stores the calculated speed value in **km/h**.
 
 ### Example
 
+```json
 "speed_value_output": "$SPEED_KMH"
+```
 
 ## 5. Result variable: `distance_output`
 
@@ -226,7 +198,9 @@ Stores the total traveled distance in **meters (m)**.
 
 ### Example
 
+```json
 "distance_output": "$DISTANCE_M"
+```
 
 ## 6. Result variable: `speed_accuracy_used`
 
@@ -235,7 +209,9 @@ calculation (km/h equivalent context).
 
 ### Example
 
+```json
 "speed_accuracy_used": "$SPEED_ACCURACY"
+```
 
 ### Details
 
@@ -243,6 +219,7 @@ calculation (km/h equivalent context).
 
 ## Complete JSON example
 
+```json
 {
   "Current Speed": [
     {
@@ -255,3 +232,4 @@ calculation (km/h equivalent context).
     }
   ]
 }
+```

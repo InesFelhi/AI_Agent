@@ -2,8 +2,8 @@
 
 ## Summary
 
-- **Internal name**: 'SCREEN_AUTOMATOR_SERIES'
-- **JSON tag**: '"ScreenAutomatorSeries"'
+- **Internal name**: `SCREEN_AUTOMATOR_SERIES`
+- **JSON tag**: `"ScreenAutomatorSeries"`
 - **Category**: Screen Automation / Accessibility
 - **Purpose**: Open a target screen (via Intent parameters) and then execute **a fast, state-machine-driven ClickInText sequence** on Samsung devices.
 
@@ -38,10 +38,10 @@ For production usage, **Samsung devices are strongly recommended**.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 
 ### Supported manufacturers
 
@@ -50,21 +50,21 @@ For production usage, **Samsung devices are strongly recommended**.
 
 ### Required permissions
 
-- 'ACCESSIBILITY_SERVICE'
+- `ACCESSIBILITY_SERVICE`
 - Any permissions required by the target Activity started via Intent
 
 ## How it works
 
-  - 'Action'
-  - 'PackageName'
-  - 'ClassName'
 1. The task **optionally launches a target Activity** using Intent parameters:
+  - `Action`
+  - `PackageName`
+  - `ClassName`
 2. Once the Activity is visible, the **ClickInText sequence executes**
 3. Each step waits for a **system-level callback event**
 4. When confirmed, the state machine advances to the **next click**
+5. Execution ends when:
   - all clicks succeed, or
   - a timeout/error occurs
-5. Execution ends when:
 
 This design avoids heavy UI scanning loops → **making automation faster and smoother on Samsung devices.**
 
@@ -79,10 +79,10 @@ If an Activity is supplied, it is started **before** the click sequence begins.
 
 ## Output parameters
 
-Returns a **'ScreenAutomatorResult'**:
+Returns a **`ScreenAutomatorResult`**:
 
-- 'automatorResult': 'true' if all clicks completed successfully
-- 'errorMsg': description in case of error or timeout
+- `automatorResult`: `true` if all clicks completed successfully
+- `errorMsg`: description in case of error or timeout
 
 No workflow variables are produced.
 
@@ -90,7 +90,7 @@ No workflow variables are produced.
 
 ## 1. `command` (ClickInText sequence)
 
-The 'command' field contains an ordered list of text-based click actions.
+The `command` field contains an ordered list of text-based click actions.
 
 ### Command entry format
 
@@ -101,6 +101,7 @@ The 'command' field contains an ordered list of text-based click actions.
 
 Example:
 
+```json
 "command": [
   {
     "ClickInText_textSelector": "Text",
@@ -115,9 +116,11 @@ Example:
     "ClickInText_text": "Allow"
   }
 ]
+```
 
 ## Execution model (State Machine)
 
+```
 Start
   ↓
 (Optional) Launch Activity via Intent
@@ -133,6 +136,7 @@ Click #2
 …repeat…
   ↓
 Success or Timeout
+```
 
 Each transition is **event-driven**, not timer-driven.
 
@@ -144,6 +148,7 @@ Each transition is **event-driven**, not timer-driven.
 
 ## Complete JSON example
 
+```json
 {
   "ScreenAutomatorSeries": [
     {
@@ -175,3 +180,4 @@ Each transition is **event-driven**, not timer-driven.
     }
   ]
 }
+```

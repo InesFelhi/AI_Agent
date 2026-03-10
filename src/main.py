@@ -5,7 +5,7 @@ from src.ingestion_pipeline.schemas import Chunk
 import uuid
 
 # Fichier Markdown à tester
-MD_FILE = Path("data/processed/task_docs/current-speed.md")
+MD_FILE = Path("data/processed/task_docs/http-request.md")
 
 def main():
     if not MD_FILE.exists():

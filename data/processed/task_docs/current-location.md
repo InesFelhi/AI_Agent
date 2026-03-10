@@ -2,24 +2,24 @@
 
 ## Summary
 
-- **Internal name**: 'Current Location'
+- **Internal name**: `Current Location`
 - **Category**: Location
 - **Purpose**: Retrieve the device's current GPS location (latitude,
 longitude, accuracy) with configurable timeout handling.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
-  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 - **Supported manufacturers**:
-  - 'ACCESS_FINE_LOCATION'
-  - 'ACCESS_COARSE_LOCATION'
-  - 'ACCESS_BACKGROUND_LOCATION' (if used in background)
-  - Location services must be enabled on the device
+  - ✅ All manufacturers (tested on Samsung One UI 6.x / 7.x / 8.x and Google Pixel Android Stock)
 - **Required permissions**:
+  - `ACCESS_FINE_LOCATION`
+  - `ACCESS_COARSE_LOCATION`
+  - `ACCESS_BACKGROUND_LOCATION` (if used in background)
+  - Location services must be enabled on the device
 
 ## Detailed description
 
@@ -60,37 +60,22 @@ The task handles:
 
 The following diagram illustrates the actual implementation based on Android code:
 
-flowchart TD
-    Start([Start GetCurrentLocationTask]) --> CheckPerm{Permission<br/>ACCESS_FINE_LOCATION<br/>ACCESS_COARSE_LOCATION<br/>granted ?}
-    
-    CheckPerm -->|No| E2[❌ GPS_APP_HAS_NO_LOCATION_PERMISSION]
-    CheckPerm -->|Yes| GetLoc[📍 getCurrentLocation<br/>Priority: HIGH_ACCURACY<br/>Timeout: location_timeout_ms]
-    
-    GetLoc -->|Timeout| E6[❌ GPS_GET_CURRENT_LOCATION_TIMEOUT]
-    GetLoc -->|Success| CheckNull{Location<br/>== null ?}
-    
-    CheckNull -->|Yes| E3[❌ GPS_GET_CURRENT_LOCATION_NULL_VALUE]
-    CheckNull -->|No| ExtractData[📊 Extract Data<br/>Latitude, Longitude, Accuracy]
-    
-    ExtractData --> StoreResult[💾 Store Result<br/>LocationTaskResult]
-    
-    StoreResult --> LogReport[📋 Log Report<br/>ReportSection]
-    
-    LogReport --> Success([✅ Success])
-    
-    E2 --> Error([❌ Exception])
-    E3 --> Error
-    E6 --> Error
-    
-    style Start fill:#e3f2fd
-    style Success fill:#c8e6c9
-    style Error fill:#ffcdd2
-    style ExtractData fill:#fff9c4
-    style GetLoc fill:#f3e5f5
-    style StoreResult fill:#c8e6c9
-    style E2 fill:#ffcdd2
-    style E3 fill:#ffcdd2
-    style E6 fill:#ffcdd2
+Diagram Nodes:
+- E2: ❌ GPS_APP_HAS_NO_LOCATION_PERMISSION
+- GetLoc: 📍 getCurrentLocation Priority: HIGH_ACCURACY Timeout: location_timeout_ms
+- E6: ❌ GPS_GET_CURRENT_LOCATION_TIMEOUT
+- E3: ❌ GPS_GET_CURRENT_LOCATION_NULL_VALUE
+- ExtractData: 📊 Extract Data Latitude, Longitude, Accuracy
+- StoreResult: 💾 Store Result LocationTaskResult
+- LogReport: 📋 Log Report ReportSection
+
+Workflow Flow:
+- 📊 Extract Data Latitude, Longitude, Accuracy → 💾 Store Result LocationTaskResult
+- 💾 Store Result LocationTaskResult → 📋 Log Report ReportSection
+- 📋 Log Report ReportSection → Success
+- ❌ GPS_APP_HAS_NO_LOCATION_PERMISSION → Error
+- ❌ GPS_GET_CURRENT_LOCATION_NULL_VALUE → Error
+- ❌ GPS_GET_CURRENT_LOCATION_TIMEOUT → Error
 
 **How it works:**
 
@@ -119,7 +104,9 @@ Defines the maximum time (in milliseconds) to wait for a valid GPS fix.
 
 ### Example
 
+```json
 "location_timeout": 15000
+```
 
 ### Details
 
@@ -135,7 +122,9 @@ Stores the latitude value returned by the GPS provider.
 
 ### Example
 
+```json
 "location_latitude_output": "$LATITUDE"
+```
 
 ## 3. Result variable: `location_longitude_output`
 
@@ -143,7 +132,9 @@ Stores the longitude value returned by the GPS provider.
 
 ### Example
 
+```json
 "location_longitude_output": "$LONGITUDE"
+```
 
 ## 4. Result variable: `location_accuracy_output`
 
@@ -151,7 +142,9 @@ Stores the accuracy of the location fix in meters.
 
 ### Example
 
+```json
 "location_accuracy_output": "$ACCURACY"
+```
 
 ### Details
 
@@ -160,6 +153,7 @@ Stores the accuracy of the location fix in meters.
 
 ## Complete JSON example
 
+```json
 {
   "Current Location": [
     {
@@ -172,3 +166,4 @@ Stores the accuracy of the location fix in meters.
     }
   ]
 }
+```

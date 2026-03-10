@@ -2,7 +2,7 @@
 
 ## Summary
 
-- **Internal name**: 'SCREEN_AUTOMATOR'
+- **Internal name**: `SCREEN_AUTOMATOR`
 - **Category**: Screen Automation / Accessibility
 - **Purpose**: Perform a tap at specific screen coordinates (X, Y) on the device.
 
@@ -20,10 +20,10 @@ This is enforced by the Android security model and **cannot be bypassed**.
 
 ## Compatibility
 
-- **Minimum AndroMate version**: '{{ ANDROMATE_FIRST_VERSION }}'
-- **Maximum AndroMate version**: '{{ ANDROMATE_CURRENT_VERSION }}'
-- **Minimum Android**: '{{ ANDROMATE_MIN_APP_SDK }}'
-- **Maximum Android tested**: '{{ ANDROID_CURRENT_APP_SDK }}'
+- **Minimum AndroMate version**: `{{ ANDROMATE_FIRST_VERSION }}`
+- **Maximum AndroMate version**: `{{ ANDROMATE_CURRENT_VERSION }}`
+- **Minimum Android**: `{{ ANDROMATE_MIN_APP_SDK }}`
+- **Maximum Android tested**: `{{ ANDROID_CURRENT_APP_SDK }}`
 
 ### Supported manufacturers
 
@@ -31,12 +31,12 @@ This is enforced by the Android security model and **cannot be bypassed**.
 
 ### Required permissions
 
-- 'ACCESSIBILITY_SERVICE'
-- (Optional) 'SYSTEM_ALERT_WINDOW' for overlay interactions
+- `ACCESSIBILITY_SERVICE`
+- (Optional) `SYSTEM_ALERT_WINDOW` for overlay interactions
 
 ## Detailed description
 
-The **ClickInXY** mode of ScreenAutomator triggers a physical-style **tap** at a specific coordinate '(x, y)'.
+The **ClickInXY** mode of ScreenAutomator triggers a physical-style **tap** at a specific coordinate `(x, y)`.
 
 It is essential when:
 
@@ -67,11 +67,13 @@ It simply performs the system interaction.
 
 ## 1. `Action_type`
 
-Must be exactly '"ClickInXY"'.
+Must be exactly `"ClickInXY"`.
 
 ### Example
 
+```json
 "Action_type": "ClickInXY"
+```
 
 ## 2. `ClickInXY_X`
 
@@ -79,7 +81,9 @@ The **horizontal coordinate** of the tap.
 
 ### Example
 
+```json
 "ClickInXY_X": 540
+```
 
 ## 3. `ClickInXY_Y`
 
@@ -87,7 +91,9 @@ The **vertical coordinate** of the tap.
 
 ### Example
 
+```json
 "ClickInXY_Y": 1250
+```
 
 ## Exceptions
 
@@ -98,6 +104,7 @@ The **vertical coordinate** of the tap.
 
 # Complete JSON example
 
+```json
 {
   "ScreenAutomator": [
     {
@@ -123,3 +130,4 @@ The **vertical coordinate** of the tap.
     }
   ]
 }
+```
