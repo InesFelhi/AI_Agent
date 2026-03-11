@@ -16,6 +16,7 @@ from src.ingestion_pipeline.schemas import Chunk
 from src.utilities.logger import get_module_logger
 import uuid
 import re
+from datetime import datetime
 
 logger = get_module_logger("chunker")
 
@@ -56,25 +57,33 @@ class Chunker:
             metadata.get("document_id")
         )
 
+        # Extract task name from first main header if not provided
+        if "task_name" not in metadata:
+            metadata["task_name"] = self._extract_task_name(text)
+
         sections = self._split_by_headers(text)
         all_chunks: List[Chunk] = []
+        chunk_index = 0
 
         for header_level, section_text, section_title in sections:
 
             section_meta = metadata.copy()
             section_meta.update({
                 "header_level": header_level,
-                "section_title": section_title
+                "section_title": section_title,
+                "hierarchy_path": f"{metadata.get('task_name', 'Unknown')} > {section_title}"
             })
 
             chunks_in_section = self._chunk_text(
                 section_text,
                 section_meta,
                 header_level,
-                section_title
+                section_title,
+                chunk_index
             )
 
             all_chunks.extend(chunks_in_section)
+            chunk_index += len(chunks_in_section)
 
             logger.info(
                 "Created %d chunks for section '%s'",
@@ -130,12 +139,29 @@ class Chunker:
 
         return sections
 
+    def _extract_task_name(self, text: str) -> str:
+        """
+        Extract task name from first main header (#) of the document.
+        
+        Args:
+            text: document text
+        
+        Returns:
+            str: task name or 'Unknown Task'
+        """
+        lines = text.split('\n')
+        for line in lines:
+            if line.startswith('# '):
+                return line[2:].strip()
+        return 'Unknown Task'
+
     def _chunk_text(
         self,
         text: str,
         metadata: dict,
         header_level: int,
-        section_title: str
+        section_title: str,
+        chunk_index: int = 0
     ) -> List[Chunk]:
         """
         Split a section into chunks with overlap.
@@ -157,6 +183,7 @@ class Chunker:
         chunks: List[Chunk] = []
         start = 0
         total_words = len(words)
+        section_chunk_index = 0
 
         # Create header prefix to inject inside chunk content
         header_prefix = f"{'#' * header_level} {section_title}\n\n" if header_level > 0 else ""
@@ -172,11 +199,21 @@ class Chunker:
 
             chunk_id = str(uuid.uuid4())
 
+            # Create enriched metadata for this chunk
+            chunk_metadata = metadata.copy()
+            chunk_metadata.update({
+                "chunk_index": chunk_index + section_chunk_index,
+                "word_count": len(chunk_body.split()),
+                "start_word": start,
+                "end_word": end,
+                "timestamp": datetime.now().isoformat()
+            })
+
             chunks.append(
                 Chunk(
                     id=chunk_id,
                     content=chunk_text,
-                    metadata=metadata
+                    metadata=chunk_metadata
                 )
             )
 
@@ -186,6 +223,8 @@ class Chunker:
                 start,
                 end
             )
+
+            section_chunk_index += 1
 
             # Stop if we reached end
             if end == total_words:
