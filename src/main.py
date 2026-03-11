@@ -30,10 +30,21 @@ def main():
     print(f"Total chunks created: {len(chunks)}\n{'='*50}\n")
 
     # Affichage de tous les chunks
-    for i, chunk in enumerate(chunks):
-        print(f"Chunk {i+1} | ID: {chunk.id} | Words: {len(chunk.content.split())}")
-        print(chunk.content)
+    for i, chunk in enumerate(chunks, 1):
+        print(f"\n{'='*80}")
+        print(f"CHUNK {i} | ID: {chunk.id}")
+        print(f"{'='*80}")
+        
+        # Afficher les métadonnées
+        print(f"\nMETADATA:")
+        for key, value in sorted(chunk.metadata.items()):
+            print(f"  {key:20s}: {value}")
+        
+        # Afficher le contenu
+        print(f"\nCONTENT: ({len(chunk.content.split())} words)")
         print("-"*80)
+        print(chunk.content[:500] + ("..." if len(chunk.content) > 500 else ""))
+        print(f"{'='*80}")
 
 if __name__ == "__main__":
     main()
