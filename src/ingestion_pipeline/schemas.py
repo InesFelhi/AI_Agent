@@ -26,7 +26,7 @@ class Chunk(BaseModel):
                 - type_doc (str): Document type (task_doc, workflow_doc, app_doc)
                 
             Hierarchical information:
-                - task_name (str): Task or document title (extracted from # header)
+                - document_title (str): Document or task title (extracted from # header)
                 - section_title (str): Section/subsection header
                 - section_level (int): Header level (1, 2, or 3)
                 - hierarchy_path (str): Full hierarchical path (e.g., "Http Request > Input parameters")
@@ -45,7 +45,7 @@ class Chunk(BaseModel):
                 "document_id": "f11c7cbd-fbd7-4e15-b3de-b1d4ca24818e",
                 "file_name": "http-request.md",
                 "type_doc": "task_doc",
-                "task_name": "Http Request Stage",
+                "document_title": "Http Request Stage",
                 "section_title": "Input parameters",
                 "section_level": 2,
                 "hierarchy_path": "Http Request Stage > Input parameters",

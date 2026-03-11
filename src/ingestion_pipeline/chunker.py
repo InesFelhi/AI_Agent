@@ -57,9 +57,9 @@ class Chunker:
             metadata.get("document_id")
         )
 
-        # Extract task name from first main header if not provided
-        if "task_name" not in metadata:
-            metadata["task_name"] = self._extract_task_name(text)
+        # Extract document title from first main header if not provided
+        if "document_title" not in metadata:
+            metadata["document_title"] = self._extract_document_title(text)
 
         sections = self._split_by_headers(text)
         all_chunks: List[Chunk] = []
@@ -71,7 +71,7 @@ class Chunker:
             section_meta.update({
                 "header_level": header_level,
                 "section_title": section_title,
-                "hierarchy_path": f"{metadata.get('task_name', 'Unknown')} > {section_title}"
+                "hierarchy_path": f"{metadata.get('document_title', 'Unknown')} > {section_title}"
             })
 
             chunks_in_section = self._chunk_text(
@@ -139,21 +139,22 @@ class Chunker:
 
         return sections
 
-    def _extract_task_name(self, text: str) -> str:
+    def _extract_document_title(self, text: str) -> str:
         """
-        Extract task name from first main header (#) of the document.
+        Extract document title from first main header (#).
+        Works for all document types (task_doc, workflow_doc, app_doc).
         
         Args:
             text: document text
         
         Returns:
-            str: task name or 'Unknown Task'
+            str: document title or 'Unknown Document'
         """
         lines = text.split('\n')
         for line in lines:
             if line.startswith('# '):
                 return line[2:].strip()
-        return 'Unknown Task'
+        return 'Unknown Document'
 
     def _chunk_text(
         self,
