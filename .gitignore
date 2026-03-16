@@ -18,3 +18,7 @@ logs/
 */__pycache__/
 **/__pycache__/
 
+# Ignore test files
+tests/
+
+

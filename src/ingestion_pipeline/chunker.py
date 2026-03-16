@@ -22,7 +22,7 @@ logger = get_module_logger("chunker")
 
 
 class Chunker:
-    def __init__(self, max_chunk_size: int = 500, overlap: int = 50):
+    def __init__(self, max_chunk_size: int = 120, overlap: int = 20):
         """
         Args:
             max_chunk_size: maximum number of words per chunk
