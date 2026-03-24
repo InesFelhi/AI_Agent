@@ -21,4 +21,3 @@ logs/
 # Ignore test files
 tests/
 
-src/api/api_rag.py

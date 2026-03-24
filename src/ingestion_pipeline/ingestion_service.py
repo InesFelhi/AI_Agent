@@ -13,7 +13,10 @@ from src.ingestion_pipeline.chunker import Chunker
 from src.ingestion_pipeline.embedder import Embedder
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.schemas import Chunk
+from src.utilities.logger import get_module_logger
 import hashlib
+
+logger = get_module_logger("ingestion_service")
 
 
 def _map_type_doc_by_folder(folder_name: str) -> str:
@@ -87,21 +90,21 @@ def ingest_pipeline(
 
     processed_root.mkdir(parents=True, exist_ok=True)
 
-    print("[PIPELINE] Cleaning Markdown documents...")
+    logger.info("[PIPELINE] Cleaning Markdown documents...")
     processed_files = clean_documents(raw_docs_root, processed_root)
-    print(f"[PIPELINE] Cleaned {len(processed_files)} files")
+    logger.info("[PIPELINE] Cleaned %d files", len(processed_files))
 
-    print("[PIPELINE] Chunking documents...")
+    logger.info("[PIPELINE] Chunking documents...")
     chunks = chunk_documents(processed_files, base_metadata)
-    print(f"[PIPELINE] Created {len(chunks)} chunks")
+    logger.info("[PIPELINE] Created %d chunks", len(chunks))
 
-    print("[PIPELINE] Embedding chunks...")
+    logger.info("[PIPELINE] Embedding chunks...")
     embeddings = embed_chunks(chunks, model_name=model_name)
-    print(f"[PIPELINE] Generated {len(embeddings)} embeddings")
+    logger.info("[PIPELINE] Generated %d embeddings", len(embeddings))
 
-    print("[PIPELINE] Storing chunks in vector store...")
+    logger.info("[PIPELINE] Storing chunks in vector store...")
     store = store_chunks(chunks, embeddings, collection_name=collection_name)
-    print("[PIPELINE] Finished ingestion to collection:", collection_name)
+    logger.info("[PIPELINE] Finished ingestion to collection: %s", collection_name)
 
     return store
 
