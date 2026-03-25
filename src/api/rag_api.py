@@ -12,10 +12,11 @@ from typing import Optional
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.utilities.logger import get_module_logger
+from src.config import config
 
 logger = get_module_logger("rag_api")
 
-app = FastAPI(title="AndroMate RAG API", version="1.0.0")
+app = FastAPI(title=config.API_TITLE, version=config.API_VERSION)
 
 
 def infer_doc_type(filename: str) -> str:
@@ -153,7 +154,7 @@ async def add_document(
             ingest_pipeline(
                 raw_docs,
                 processed_docs,
-                collection_name="andromate_docs",
+                collection_name=config.QDRANT_COLLECTION_NAME,
                 base_metadata={"doc_hash": doc_hash, "type_doc": doc_type}
             )
         except ValueError as e:

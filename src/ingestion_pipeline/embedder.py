@@ -10,6 +10,7 @@ Responsibilities:
 from typing import List
 from sentence_transformers import SentenceTransformer
 from src.utilities.logger import get_module_logger
+from src.config import config
 
 logger = get_module_logger("embedder")
 
@@ -19,13 +20,14 @@ class Embedder:
     Generate embeddings using Sentence Transformers.
     """
 
-    def __init__(self, model_name: str = "sentence-transformers/all-MiniLM-L6-v2"):
+    def __init__(self, model_name: str = None):
         """
         Initialize embedding model.
 
         Args:
-            model_name: HuggingFace embedding model
+            model_name: HuggingFace embedding model (default from config)
         """
+        model_name = model_name or config.EMBEDDING_MODEL
         logger.info("Loading embedding model: %s", model_name)
 
         try:

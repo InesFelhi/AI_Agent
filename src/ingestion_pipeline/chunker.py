@@ -14,6 +14,7 @@ Responsibilities:
 from typing import List, Tuple
 from src.ingestion_pipeline.schemas import Chunk
 from src.utilities.logger import get_module_logger
+from src.config import config
 import uuid
 import re
 from datetime import datetime
@@ -22,16 +23,16 @@ logger = get_module_logger("chunker")
 
 
 class Chunker:
-    def __init__(self, max_chunk_size: int = 200, overlap: int = 50):
+    def __init__(self, max_chunk_size: int = None, overlap: int = None):
         """
         Args:
-            max_chunk_size: maximum number of words per chunk
-            overlap: number of words to overlap between chunks
+            max_chunk_size: maximum number of words per chunk (default from config)
+            overlap: number of words to overlap between chunks (default from config)
         """
-        self.max_chunk_size = max_chunk_size
-        self.overlap = overlap
+        self.max_chunk_size = max_chunk_size or config.CHUNK_MAX_SIZE
+        self.overlap = overlap or config.CHUNK_OVERLAP
 
-        if overlap >= max_chunk_size:
+        if self.overlap >= self.max_chunk_size:
             raise ValueError("overlap must be smaller than max_chunk_size")
 
         logger.info(

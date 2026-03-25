@@ -13,6 +13,7 @@ from qdrant_client import QdrantClient, models
 from qdrant_client.models import Distance, VectorParams, PointStruct
 from src.ingestion_pipeline.schemas import Chunk
 from src.utilities.logger import get_module_logger
+from src.config import config
 
 logger = get_module_logger("vector_store")
 
@@ -21,15 +22,18 @@ class VectorStore:
 
     def __init__(
         self,
-        collection_name: str = "workflow_docs",
-        host: str = "localhost",
-        port: int = 6333,
-        vector_size: int = 384
+        collection_name: str = None,
+        host: str = None,
+        port: int = None,
+        vector_size: int = None
     ):
-        self.collection_name = collection_name
-        self.vector_size = vector_size
+        self.collection_name = collection_name or config.QDRANT_COLLECTION_NAME
+        self.vector_size = vector_size or config.QDRANT_VECTOR_SIZE
 
-        logger.info("Connecting to Qdrant")
+        host = host or config.QDRANT_HOST
+        port = port or config.QDRANT_PORT
+
+        logger.info("Connecting to Qdrant at %s:%d", host, port)
 
         self.client = QdrantClient(
             host=host,
