@@ -5,9 +5,10 @@ RAG API for document ingestion and querying.
 Provides endpoints to add documents and run the full ingestion pipeline.
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from pathlib import Path
 import hashlib
+from typing import Optional
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.utilities.logger import get_module_logger
@@ -16,8 +17,39 @@ logger = get_module_logger("rag_api")
 
 app = FastAPI(title="AndroMate RAG API", version="1.0.0")
 
+
+def infer_doc_type(filename: str) -> str:
+    """
+    Infer document type from filename.
+    
+    Priority: exact prefix match > substring match > general_doc
+    Examples: task-cmd.md → task_doc, workflow-intro.md → workflow_doc
+    """
+    name_lower = filename.lower()
+    
+    # Check for task prefixes
+    if name_lower.startswith("task") or "task" in name_lower:
+        return "task_doc"
+    
+    # Check for workflow prefixes
+    if name_lower.startswith("workflow") or "workflow" in name_lower:
+        return "workflow_doc"
+    
+    # Check for app prefixes
+    if name_lower.startswith("app") or "app" in name_lower:
+        return "app_doc"
+    
+    return "general_doc"
+
 @app.post("/add_document")
-async def add_document(file: UploadFile = File(...)):
+async def add_document(
+    file: UploadFile = File(...),
+    doc_type: Optional[str] = Query(
+        None,
+        enum=["task_doc", "workflow_doc", "app_doc", "general_doc"],
+        description="Optional: explicitly set document type. If not provided, will be inferred from filename"
+    )
+):
     """
     Upload a Markdown document and run the full ingestion pipeline.
 
@@ -27,14 +59,26 @@ async def add_document(file: UploadFile = File(...)):
     - Stores in vector database
 
     Handles updates if document already exists.
+    
+    Parameters:
+        file: Markdown file to upload (.md extension required)
+        doc_type: Optional document type (task_doc, workflow_doc, app_doc, or general_doc)
+                 If not provided, will be inferred from filename
+                 Examples: task-cmd.md → task_doc, workflow-intro.md → workflow_doc
     """
     if not file.filename.endswith(".md"):
         raise HTTPException(status_code=400, detail="Only .md files are supported")
 
+    # Determine doc_type with priority: explicit param > filename inference > default
+    if not doc_type:
+        doc_type = infer_doc_type(file.filename)
+    
     # Read content
     content = await file.read()
     doc_hash = hashlib.md5(content).hexdigest()
     document_id = Path(file.filename).stem
+
+    logger.info("Processing document: %s (type: %s)", document_id, doc_type)
 
     # Check if document exists and is up to date
     store = VectorStore(collection_name="andromate_docs")
@@ -61,14 +105,14 @@ async def add_document(file: UploadFile = File(...)):
     with open(temp_path, "wb") as f:
         f.write(content)
 
-    # Run full ingestion pipeline with document hash in metadata
+    # Run full ingestion pipeline with document hash and type in metadata
     raw_docs = temp_dir
     processed_docs = Path("data/processed")
     ingest_pipeline(
         raw_docs,
         processed_docs,
         collection_name="andromate_docs",
-        base_metadata={"doc_hash": doc_hash}
+        base_metadata={"doc_hash": doc_hash, "type_doc": doc_type}
     )
 
     # Clean up temp file

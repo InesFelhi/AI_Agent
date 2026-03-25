@@ -49,7 +49,13 @@ def chunk_documents(processed_files: List[Path], base_metadata: Dict[str, str], 
 
     for processed in processed_files:
         text = processed.read_text(encoding="utf-8")
-        type_doc = _map_type_doc_by_folder(processed.parent.name)
+        
+        # Use type_doc from base_metadata if provided, otherwise deduce from folder
+        if "type_doc" in base_metadata:
+            type_doc = base_metadata["type_doc"]
+        else:
+            type_doc = _map_type_doc_by_folder(processed.parent.name)
+        
         metadata = {
             "document_id": processed.stem,
             "file_name": processed.name,
