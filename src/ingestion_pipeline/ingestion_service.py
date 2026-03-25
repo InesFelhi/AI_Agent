@@ -14,7 +14,6 @@ from src.ingestion_pipeline.embedder import Embedder
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.schemas import Chunk
 from src.utilities.logger import get_module_logger
-import hashlib
 
 logger = get_module_logger("ingestion_service")
 
@@ -51,14 +50,16 @@ def chunk_documents(processed_files: List[Path], base_metadata: Dict[str, str], 
     for processed in processed_files:
         text = processed.read_text(encoding="utf-8")
         type_doc = _map_type_doc_by_folder(processed.parent.name)
-        doc_hash = hashlib.md5(text.encode()).hexdigest()  # Add hash for change detection
         metadata = {
             "document_id": processed.stem,
             "file_name": processed.name,
             "type_doc": type_doc,
             "document_title": processed.stem,
-            "doc_hash": doc_hash,  # Store hash in metadata
         }
+        # Always use the raw doc_hash from base_metadata (calculated on raw upload content)
+        # This ensures consistency: same hash used in add_document check and chunk storage
+        if "doc_hash" not in metadata and "doc_hash" in base_metadata:
+            metadata["doc_hash"] = base_metadata["doc_hash"]
         metadata.update(base_metadata)
         chunks = chunker.chunk(text, metadata)
         all_chunks.extend(chunks)

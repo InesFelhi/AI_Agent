@@ -10,6 +10,9 @@ from pathlib import Path
 import hashlib
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
+from src.utilities.logger import get_module_logger
+
+logger = get_module_logger("rag_api")
 
 app = FastAPI(title="AndroMate RAG API", version="1.0.0")
 
@@ -42,7 +45,13 @@ async def add_document(file: UploadFile = File(...)):
     )
 
     if existing_hits and existing_hits[0].payload.get("doc_hash") == doc_hash:
+        logger.info("Document is up to date (hash match) - document_id: %s", document_id)
         return {"message": "Document is up to date", "document_id": document_id}
+
+    # If document exists but content changed, delete old chunks
+    if existing_hits:
+        logger.info("Document exists but hash differs - deleting old version: %s", document_id)
+        store.delete_documents(filter_conditions={"document_id": document_id})
 
     # Save uploaded file temporarily
     temp_dir = Path("temp")
@@ -52,14 +61,20 @@ async def add_document(file: UploadFile = File(...)):
     with open(temp_path, "wb") as f:
         f.write(content)
 
-    # Run full ingestion pipeline
+    # Run full ingestion pipeline with document hash in metadata
     raw_docs = temp_dir
     processed_docs = Path("data/processed")
-    ingest_pipeline(raw_docs, processed_docs, collection_name="andromate_docs")
+    ingest_pipeline(
+        raw_docs,
+        processed_docs,
+        collection_name="andromate_docs",
+        base_metadata={"doc_hash": doc_hash}
+    )
 
     # Clean up temp file
     temp_path.unlink()
 
+    logger.info("Document added and indexed successfully: %s", document_id)
     return {"message": "Document added and indexed", "document_id": document_id}
 
 @app.get("/health")

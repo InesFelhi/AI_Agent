@@ -407,3 +407,17 @@ AttributeError: 'DocumentCleaner' object has no attribute '_convert_mermaid'
 2026-03-25 00:29:23 | INFO | document_cleaner | Cleaning completed: data\processed\workflows\runtime-resolver.md
 2026-03-25 00:29:23 | INFO | document_cleaner | Cleaning started: data\raw\workflows\variables.md
 2026-03-25 00:29:23 | INFO | document_cleaner | Cleaning completed: data\processed\workflows\variables.md
+2026-03-25 00:40:45 | INFO | document_cleaner | Cleaning started: temp\cmd.md
+2026-03-25 00:40:45 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md
+2026-03-25 00:43:49 | INFO | document_cleaner | Cleaning started: temp\current-location.md
+2026-03-25 00:43:49 | INFO | document_cleaner | Cleaning completed: data\processed\current-location.md
+2026-03-25 01:09:06 | INFO | document_cleaner | Cleaning started: temp\current-location.md
+2026-03-25 01:09:06 | INFO | document_cleaner | Cleaning completed: data\processed\current-location.md
+2026-03-25 01:10:47 | INFO | document_cleaner | Cleaning started: temp\cmd.md
+2026-03-25 01:10:48 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md
+2026-03-25 01:15:10 | INFO | document_cleaner | Cleaning started: temp\cmd.md
+2026-03-25 01:15:10 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md
+2026-03-25 01:28:47 | INFO | document_cleaner | Cleaning started: temp\cmd.md
+2026-03-25 01:28:47 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md
+2026-03-25 01:29:27 | INFO | document_cleaner | Cleaning started: temp\cmd.md
+2026-03-25 01:29:27 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md

@@ -93,6 +93,24 @@ class VectorStore:
         logger.info("Chunks stored successfully")
 
     # -----------------------------
+    # Delete chunks
+    # -----------------------------
+    def delete_documents(self, filter_conditions: Optional[Dict[str, str]] = None):
+        """
+        Delete points matching the filter conditions.
+        """
+        logger.info("Deleting documents with filter: %s", filter_conditions)
+
+        query_filter = self._build_query_filter(filter_conditions)
+
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=models.FilterSelector(filter=query_filter)
+        )
+
+        logger.info("Documents deleted successfully")
+
+    # -----------------------------
     # Search (Similarity Search)
     # -----------------------------
     def _build_query_filter(self, filter_conditions: Optional[Dict[str, str]] = None):
