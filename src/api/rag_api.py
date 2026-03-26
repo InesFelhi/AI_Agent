@@ -8,6 +8,7 @@ Provides endpoints to add documents and run the full ingestion pipeline.
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
 from pathlib import Path
 import hashlib
+import uuid
 from typing import Optional
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
@@ -188,6 +189,193 @@ async def add_document(
             status_code=500,
             detail="Internal server error"
         )
+
+@app.post("/add_documents")
+async def add_documents(
+    files: list[UploadFile] = File(...),
+    doc_type: Optional[str] = Query(
+        None,
+        enum=["task_doc", "workflow_doc", "app_doc", "general_doc"],
+        description="Optional: explicitly set document type for all files"
+    )
+):
+    """
+    Upload multiple Markdown documents in a single request.
+
+    - Processes each document independently
+    - Returns detailed report (success/failed)
+    - Robust error handling per file
+    - No halt on individual failures
+
+    Parameters:
+        files: Multiple Markdown files (.md extension required)
+        doc_type: Optional type for all files (if not provided, inferred from filename)
+
+    Returns:
+        {
+            "batch_id": "uuid",
+            "total": 3,
+            "success": 2,
+            "failed": 1,
+            "results": [
+                {"file": "file1.md", "status": "success", "document_id": "file1"},
+                {"file": "file2.md", "status": "success", "document_id": "file2"},
+                {"file": "file3.md", "status": "error", "reason": "Invalid UTF-8"}
+            ]
+        }
+    """
+    
+    batch_id = str(uuid.uuid4())[:8]
+    results = []
+    success_count = 0
+    failed_count = 0
+
+    logger.info("[BATCH %s] Starting batch ingestion with %d files", batch_id, len(files))
+
+    for file in files:
+        result = {
+            "file": file.filename,
+            "status": "error",
+            "reason": None,
+            "document_id": None
+        }
+
+        try:
+            # Validate file extension
+            if not file.filename.endswith(".md"):
+                result["reason"] = "Only .md files are supported"
+                failed_count += 1
+                results.append(result)
+                logger.warning("[BATCH %s] Skipped %s: invalid extension", batch_id, file.filename)
+                continue
+
+            # Determine doc_type
+            file_doc_type = doc_type or infer_doc_type(file.filename)
+
+            # Read content
+            content = await file.read()
+
+            # Validate file size
+            max_size_bytes = 50 * 1024 * 1024
+            if len(content) > max_size_bytes:
+                result["reason"] = f"File too large ({len(content) / (1024*1024):.2f}MB, max 50MB)"
+                failed_count += 1
+                results.append(result)
+                logger.warning("[BATCH %s] Skipped %s: size exceeds limit", batch_id, file.filename)
+                continue
+
+            # Validate UTF-8 encoding
+            try:
+                content.decode('utf-8')
+            except UnicodeDecodeError as e:
+                result["reason"] = f"Invalid UTF-8 encoding: {str(e)}"
+                failed_count += 1
+                results.append(result)
+                logger.warning("[BATCH %s] Skipped %s: UTF-8 error", batch_id, file.filename)
+                continue
+
+            # Calculate doc hash
+            doc_hash = hashlib.md5(content).hexdigest()
+            document_id = Path(file.filename).stem
+
+            logger.info("[BATCH %s] Processing: %s (type: %s, size: %dB)",
+                       batch_id, document_id, file_doc_type, len(content))
+
+            # Check if document exists
+            try:
+                store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
+                existing_hits = store.search(
+                    query_vector=[0.0] * 384,
+                    limit=1,
+                    filter_conditions={"document_id": document_id}
+                )
+            except Exception as e:
+                result["reason"] = f"Vector store connection failed: {str(e)}"
+                failed_count += 1
+                results.append(result)
+                logger.error("[BATCH %s] Skipped %s: store error", batch_id, file.filename)
+                continue
+
+            # Check if unchanged
+            if existing_hits and existing_hits[0].payload.get("doc_hash") == doc_hash:
+                result["status"] = "skipped"
+                result["reason"] = "Document up to date (hash match)"
+                result["document_id"] = document_id
+                success_count += 1
+                results.append(result)
+                logger.info("[BATCH %s] Skipped %s: unchanged", batch_id, file.filename)
+                continue
+
+            # Delete old chunks if needed
+            if existing_hits:
+                try:
+                    store.delete_documents(filter_conditions={"document_id": document_id})
+                    logger.info("[BATCH %s] Deleted old chunks for %s", batch_id, document_id)
+                except Exception as e:
+                    logger.warning("[BATCH %s] Failed to delete old chunks: %s", batch_id, str(e))
+
+            # Save temp file
+            temp_dir = Path("temp")
+            temp_dir.mkdir(exist_ok=True)
+            temp_path = temp_dir / Path(file.filename).name
+
+            try:
+                with open(temp_path, "wb") as f:
+                    f.write(content)
+            except IOError as e:
+                result["reason"] = f"Failed to save file: {str(e)}"
+                failed_count += 1
+                results.append(result)
+                logger.error("[BATCH %s] Failed to save %s", batch_id, file.filename)
+                continue
+
+            # Run ingestion pipeline
+            try:
+                raw_docs = temp_dir
+                processed_docs = Path("data/processed")
+                ingest_pipeline(
+                    raw_docs,
+                    processed_docs,
+                    collection_name=config.QDRANT_COLLECTION_NAME,
+                    base_metadata={"doc_hash": doc_hash, "type_doc": file_doc_type}
+                )
+                result["status"] = "success"
+                result["document_id"] = document_id
+                success_count += 1
+                logger.info("[BATCH %s] Success: %s", batch_id, document_id)
+            except ValueError as e:
+                result["reason"] = f"Validation error: {str(e)}"
+                failed_count += 1
+                logger.error("[BATCH %s] Validation error for %s: %s", batch_id, document_id, str(e))
+            except Exception as e:
+                result["reason"] = f"Pipeline error: {str(e)}"
+                failed_count += 1
+                logger.exception("[BATCH %s] Pipeline failed for %s", batch_id, document_id)
+            finally:
+                # Cleanup
+                try:
+                    temp_path.unlink()
+                except:
+                    pass
+
+            results.append(result)
+
+        except Exception as e:
+            result["reason"] = f"Unexpected error: {str(e)}"
+            failed_count += 1
+            results.append(result)
+            logger.exception("[BATCH %s] Unexpected error for %s", batch_id, file.filename)
+
+    logger.info("[BATCH %s] Completed: %d success, %d failed", batch_id, success_count, failed_count)
+
+    return {
+        "batch_id": batch_id,
+        "total": len(files),
+        "success": success_count,
+        "failed": failed_count,
+        "results": results
+    }
+
 
 @app.get("/health")
 def health_check():

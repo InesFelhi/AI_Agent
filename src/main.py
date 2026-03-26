@@ -9,7 +9,7 @@ from src.config import config
 
 if __name__ == "__main__":
     uvicorn.run(
-        app,
+        "src.api.rag_api:app",
         host=config.API_HOST,
         port=config.API_PORT,
         reload=config.API_RELOAD
