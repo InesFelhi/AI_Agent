@@ -7,3 +7,4 @@ python-dotenv==1.0.0
 markdown-it-py==3.0.0
 pytest==7.4.3
 markdown==3.5.1
+python-dotenv==1.2.2

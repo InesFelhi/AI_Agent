@@ -6,10 +6,23 @@ Centralizes all application settings including:
 - Qdrant vector database settings
 - Embedding model configuration
 - Text processing parameters (chunking, overlap)
+
+Loads environment variables from .env file (if exists) using python-dotenv.
 """
 
 import os
 from typing import Optional
+from pathlib import Path
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    env_file = Path(__file__).parent.parent / ".env"
+    if env_file.exists():
+        load_dotenv(env_file)
+except ImportError:
+    # python-dotenv not installed, continue without .env support
+    pass
 
 
 class Config:
