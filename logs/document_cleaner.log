@@ -469,3 +469,7 @@ AttributeError: 'DocumentCleaner' object has no attribute '_convert_mermaid'
 2026-03-26 14:31:19 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md
 2026-03-26 14:32:17 | INFO | document_cleaner | Cleaning started: temp\http-request.md
 2026-03-26 14:32:17 | INFO | document_cleaner | Cleaning completed: data\processed\http-request.md
+2026-03-26 14:56:24 | INFO | document_cleaner | Cleaning started: temp\cmd.md
+2026-03-26 14:56:24 | INFO | document_cleaner | Cleaning completed: data\processed\cmd.md
+2026-03-26 16:08:31 | INFO | document_cleaner | Cleaning started: temp\http-request.md
+2026-03-26 16:08:31 | INFO | document_cleaner | Cleaning completed: data\processed\http-request.md

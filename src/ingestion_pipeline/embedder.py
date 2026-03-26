@@ -7,17 +7,21 @@ Responsibilities:
 - Support batch processing
 """
 
-from typing import List
+from typing import List, Optional
 from sentence_transformers import SentenceTransformer
 from src.utilities.logger import get_module_logger
 from src.config import config
 
 logger = get_module_logger("embedder")
 
+# Global singleton instance - loaded once at startup
+_embedder_instance: Optional['Embedder'] = None
+
 
 class Embedder:
     """
     Generate embeddings using Sentence Transformers.
+    Implements singleton pattern to load model once at startup.
     """
 
     def __init__(self, model_name: str = None):
@@ -54,6 +58,31 @@ class Embedder:
         embedding = self.model.encode(text, convert_to_numpy=True)
 
         return embedding.tolist()
+
+    # -----------------------------
+    # Singleton getter
+    # -----------------------------
+    @staticmethod
+    def get_instance(model_name: str = None) -> 'Embedder':
+        """
+        Get singleton instance of Embedder.
+        Load model only once when first called.
+        
+        Args:
+            model_name: HuggingFace model (only used on first init)
+            
+        Returns:
+            Singleton Embedder instance
+        """
+        global _embedder_instance
+        if _embedder_instance is None:
+            model_name = model_name or config.EMBEDDING_MODEL
+            logger.info("[SINGLETON] Initializing Embedder with model: %s", model_name)
+            _embedder_instance = Embedder(model_name)
+            logger.info("[SINGLETON] Embedder ready for all requests")
+        else:
+            logger.debug("[SINGLETON] Reusing cached embedder instance")
+        return _embedder_instance
 
     # -----------------------------
     # Embed batch of texts
@@ -93,7 +122,7 @@ class Embedder:
             logger.warning("No valid texts to embed after filtering")
             return []
 
-        logger.info("Generating embeddings for %d chunks", len(clean_texts))
+        logger.info("[BATCH_EMBED] Generating embeddings for %d chunks (batch_size=%d)", len(clean_texts), batch_size)
 
         try:
             embeddings = self.model.encode(
@@ -102,6 +131,7 @@ class Embedder:
                 convert_to_numpy=True,
                 show_progress_bar=False,
             )
+            logger.info("[BATCH_EMBED] [OK] Successfully generated %d embeddings", len(embeddings))
         except Exception:
             logger.exception("Failed generating embeddings for batch")
             raise

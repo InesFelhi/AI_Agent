@@ -6,18 +6,54 @@ Provides endpoints to add documents and run the full ingestion pipeline.
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from contextlib import asynccontextmanager
 from pathlib import Path
 import hashlib
 import uuid
 from typing import Optional
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
+from src.ingestion_pipeline.embedder import Embedder
 from src.utilities.logger import get_module_logger
 from src.config import config
 
 logger = get_module_logger("rag_api")
 
-app = FastAPI(title=config.API_TITLE, version=config.API_VERSION)
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for FastAPI application.
+    
+    Startup:
+    - Load embedding model once at API startup (singleton pattern)
+    
+    Shutdown:
+    - Clean up resources (optional)
+    """
+    # ===================== STARTUP =====================
+    try:
+        logger.info("=" * 70)
+        logger.info("[STARTUP] Loading embedding model (lifespan)...")
+        logger.info("=" * 70)
+        Embedder.get_instance()
+        logger.info("[SUCCESS] Embedding model loaded successfully at startup")
+        logger.info("[SUCCESS] Model will be reused for ALL requests")
+        logger.info("=" * 70)
+    except Exception as e:
+        logger.error("CRITICAL: Failed to load embedding model at startup")
+        logger.exception("Startup error: %s", str(e))
+        raise
+    
+    yield  # App runs here
+    
+    # ===================== SHUTDOWN =====================
+    logger.info("=" * 70)
+    logger.info("[SHUTDOWN] Cleaning up resources...")
+    logger.info("=" * 70)
+
+
+app = FastAPI(title=config.API_TITLE, version=config.API_VERSION, lifespan=lifespan)
 
 
 def infer_doc_type(filename: str) -> str:
@@ -76,6 +112,8 @@ async def add_document(
         # Determine doc_type with priority: explicit param > filename inference > default
         if not doc_type:
             doc_type = infer_doc_type(file.filename)
+        
+        logger.info("[REQUEST] POST /add_document - Embedding model: REUSING singleton instance")
         
         # Read content
         content = await file.read()
@@ -231,6 +269,7 @@ async def add_documents(
     failed_count = 0
 
     logger.info("[BATCH %s] Starting batch ingestion with %d files", batch_id, len(files))
+    logger.info("[BATCH %s] Embedding model: REUSING singleton instance", batch_id)
 
     for file in files:
         result = {

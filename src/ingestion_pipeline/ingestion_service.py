@@ -74,9 +74,22 @@ def chunk_documents(processed_files: List[Path], base_metadata: Dict[str, str], 
 
 
 def embed_chunks(chunks: List[Chunk], model_name: str = "sentence-transformers/all-MiniLM-L6-v2") -> List[List[float]]:
-    embedder = Embedder(model_name=model_name)
+    """
+    Generate embeddings for chunks using singleton Embedder instance.
+    
+    Args:
+        chunks: List of Chunk objects
+        model_name: Model name (used only on first call, ignored on subsequent calls)
+        
+    Returns:
+        List of embedding vectors
+    """
+    logger.info("[EMBED] Using singleton embedder for %d chunks", len(chunks))
+    embedder = Embedder.get_instance(model_name=model_name)
     texts = [chunk.content for chunk in chunks]
-    return embedder.embed_batch(texts)
+    embeddings = embedder.embed_batch(texts)
+    logger.info("[EMBED] [OK] Generated %d embeddings", len(embeddings))
+    return embeddings
 
 
 def store_chunks(chunks: List[Chunk], embeddings: List[List[float]], collection_name: str = "andromate_docs") -> VectorStore:
@@ -95,23 +108,30 @@ def ingest_pipeline(
     if base_metadata is None:
         base_metadata = {}
 
+    logger.info("=" * 70)
+    logger.info("[PIPELINE] Starting ingestion pipeline")
+    logger.info("[PIPELINE] Collection: %s", collection_name)
+    logger.info("[PIPELINE] Model: %s", model_name)
+    logger.info("=" * 70)
+
     processed_root.mkdir(parents=True, exist_ok=True)
 
-    logger.info("[PIPELINE] Cleaning Markdown documents...")
+    logger.info("[PIPELINE] STEP 1/4: Cleaning Markdown documents...")
     processed_files = clean_documents(raw_docs_root, processed_root)
-    logger.info("[PIPELINE] Cleaned %d files", len(processed_files))
+    logger.info("[PIPELINE] [OK] Cleaned %d files", len(processed_files))
 
-    logger.info("[PIPELINE] Chunking documents...")
+    logger.info("[PIPELINE] STEP 2/4: Chunking documents...")
     chunks = chunk_documents(processed_files, base_metadata)
-    logger.info("[PIPELINE] Created %d chunks", len(chunks))
+    logger.info("[PIPELINE] [OK] Created %d chunks", len(chunks))
 
-    logger.info("[PIPELINE] Embedding chunks...")
+    logger.info("[PIPELINE] STEP 3/4: Embedding chunks...")
     embeddings = embed_chunks(chunks, model_name=model_name)
-    logger.info("[PIPELINE] Generated %d embeddings", len(embeddings))
+    logger.info("[PIPELINE] [OK] Generated %d embeddings", len(embeddings))
 
-    logger.info("[PIPELINE] Storing chunks in vector store...")
+    logger.info("[PIPELINE] STEP 4/4: Storing chunks in vector store...")
     store = store_chunks(chunks, embeddings, collection_name=collection_name)
-    logger.info("[PIPELINE] Finished ingestion to collection: %s", collection_name)
+    logger.info("[PIPELINE] [OK] Finished ingestion to collection: %s", collection_name)
+    logger.info("=" * 70)
 
     return store
 
