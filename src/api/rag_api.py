@@ -5,12 +5,16 @@ RAG API for document ingestion and querying.
 Provides endpoints to add documents and run the full ingestion pipeline.
 """
 
-from fastapi import FastAPI, UploadFile, File, HTTPException, Query
+from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request, Depends, status
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from pathlib import Path
 import hashlib
 import uuid
 from typing import Optional
+import time
+from collections import defaultdict
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.embedder import Embedder
@@ -18,6 +22,42 @@ from src.utilities.logger import get_module_logger
 from src.config import config
 
 logger = get_module_logger("rag_api")
+
+security = HTTPBearer()
+client_request_times = defaultdict(list)
+
+
+def _get_client_ip(request: Request) -> str:
+    if request.client and request.client.host:
+        return request.client.host
+    return "unknown"
+
+
+async def verify_api_key(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
+    provided_key = credentials.credentials if credentials else None
+    if provided_key != config.API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing API key",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+
+    client_ip = _get_client_ip(request)
+    now = time.time()
+
+    # Clean window and enforce rate limit
+    window = [t for t in client_request_times[client_ip] if now - t < 60]
+    if len(window) >= config.API_RATE_LIMIT_PER_MINUTE:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded. Try again later."
+        )
+
+    window.append(now)
+    client_request_times[client_ip] = window
 
 
 @asynccontextmanager
@@ -55,6 +95,14 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title=config.API_TITLE, version=config.API_VERSION, lifespan=lifespan)
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=list(config.CORS_ALLOW_ORIGINS) if config.CORS_ALLOW_ORIGINS != ("*",) else ["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 def infer_doc_type(filename: str) -> str:
     """
@@ -79,7 +127,22 @@ def infer_doc_type(filename: str) -> str:
     
     return "general_doc"
 
-@app.post("/add_document")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint. No API key required."""
+    try:
+        # Optionally, verify Qdrant availability
+        store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
+        # This call can raise if Qdrant unreachable
+        store.client.get_collections()
+        return {"status": "healthy", "qdrant": "available"}
+    except Exception as e:
+        logger.warning("Health check warning: %s", str(e))
+        return {"status": "unhealthy", "error": str(e)}
+
+
+@app.post("/add_document", dependencies=[Depends(verify_api_key)])
 async def add_document(
     file: UploadFile = File(...),
     doc_type: Optional[str] = Query(
@@ -228,7 +291,7 @@ async def add_document(
             detail="Internal server error"
         )
 
-@app.post("/add_documents")
+@app.post("/add_documents", dependencies=[Depends(verify_api_key)])
 async def add_documents(
     files: list[UploadFile] = File(...),
     doc_type: Optional[str] = Query(

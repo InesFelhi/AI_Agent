@@ -62,7 +62,12 @@ class Config:
     LOG_FILE: str = os.getenv("LOG_FILE", "logs/app.log")
     LOG_MAX_BYTES: int = int(os.getenv("LOG_MAX_BYTES", "5242880"))  # 5MB
     LOG_BACKUP_COUNT: int = int(os.getenv("LOG_BACKUP_COUNT", "3"))
-    
+
+    # ==================== Security Configuration ====================
+    API_KEY: str = os.getenv("API_KEY", "your-default-api-key")
+    API_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("API_RATE_LIMIT_PER_MINUTE", "60"))
+    CORS_ALLOW_ORIGINS: tuple = tuple(os.getenv("CORS_ALLOW_ORIGINS", "*").split(","))
+
     @classmethod
     def to_dict(cls) -> dict:
         """Return all configuration as dictionary."""
