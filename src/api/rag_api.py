@@ -12,13 +12,15 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 import hashlib
 import uuid
-from typing import Optional
+from typing import Optional, Literal
 import time
 from collections import defaultdict
+from pydantic import BaseModel
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.embedder import Embedder
 from src.utilities.logger import get_module_logger
+from src.llm.prompt import WORKFLOW_GENERATION_PROMPT, build_workflow_generation_prompt
 from src.config import config
 
 logger = get_module_logger("rag_api")
@@ -145,9 +147,8 @@ async def health_check():
 @app.post("/add_document", dependencies=[Depends(verify_api_key)])
 async def add_document(
     file: UploadFile = File(...),
-    doc_type: Optional[str] = Query(
+    doc_type: Optional[Literal["task_doc", "workflow_doc", "app_doc", "general_doc"]] = Query(
         None,
-        enum=["task_doc", "workflow_doc", "app_doc", "general_doc"],
         description="Optional: explicitly set document type. If not provided, will be inferred from filename"
     )
 ):
@@ -267,6 +268,12 @@ async def add_document(
             )
         except Exception as e:
             logger.exception("Pipeline processing failed")
+            low = str(e).lower()
+            if "qdrant" in low or "vector store" in low or "timed out" in low or "timeout" in low:
+                raise HTTPException(
+                    status_code=503,
+                    detail="Vector database temporarily unavailable"
+                )
             raise HTTPException(
                 status_code=500,
                 detail="Failed to process document. Check server logs."
@@ -286,10 +293,54 @@ async def add_document(
         raise
     except Exception as e:
         logger.exception("Unexpected error in add_document")
+        lower = str(e).lower()
+        if "vector store" in lower or "qdrant" in lower or "empty update request" in lower:
+            raise HTTPException(
+                status_code=503,
+                detail="Vector database temporarily unavailable"
+            )
         raise HTTPException(
             status_code=500,
             detail="Internal server error"
         )
+
+class QueryWorkflowRequest(BaseModel):
+    question: str
+    top_k: int = 5
+
+
+@app.post("/query_workflow", dependencies=[Depends(verify_api_key)])
+async def query_workflow(payload: QueryWorkflowRequest):
+    """Embed user question, retrieve relevant docs and build prompt."""
+    try:
+        query_vector = Embedder.get_instance().embed_text(payload.question)
+    except Exception as e:
+        logger.exception("Failed creating embedding")
+        raise HTTPException(status_code=500, detail=f"Embedding error: {str(e)}")
+
+    try:
+        store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
+        points = store.search(query_vector=query_vector, limit=payload.top_k)
+    except Exception as e:
+        logger.exception("Failed vector search")
+        raise HTTPException(status_code=503, detail=f"Vector store query error: {str(e)}")
+
+    retrieved = [p.payload.get("content", "") for p in points]
+    retrieved_content = "\n\n".join(retrieved).strip() or "No retrieved content"
+
+    prompt = build_workflow_generation_prompt(
+        context=retrieved_content,
+        instruction=payload.question,
+        examples=""
+    )
+
+    return {
+        "question": payload.question,
+        "prompt": prompt,
+        "retrieved_content": retrieved,
+        "top_k": payload.top_k
+    }
+
 
 @app.post("/add_documents", dependencies=[Depends(verify_api_key)])
 async def add_documents(
@@ -477,9 +528,3 @@ async def add_documents(
         "failed": failed_count,
         "results": results
     }
-
-
-@app.get("/health")
-def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy"}

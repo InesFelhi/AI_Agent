@@ -74,10 +74,13 @@ class VectorStore:
     ):
         logger.info("Storing %d chunks in vector database", len(chunks))
 
+        if not chunks or not embeddings:
+            logger.info("No chunks or embeddings to store. Skipping upsert.")
+            return
+
         points = []
 
         for chunk, vector in zip(chunks, embeddings):
-
             payload = chunk.metadata.copy()
             payload["content"] = chunk.content
 
@@ -89,10 +92,18 @@ class VectorStore:
 
             points.append(point)
 
-        self.client.upsert(
-            collection_name=self.collection_name,
-            points=points
-        )
+        if not points:
+            logger.info("Zero points to upsert after processing chunks. Skipping.")
+            return
+
+        try:
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=points
+            )
+        except Exception as e:
+            logger.exception("Vector store upsert failed")
+            raise RuntimeError(f"Vector store upsert failed: {e}")
 
         logger.info("Chunks stored successfully")
 
