@@ -3,14 +3,24 @@ Vector store module for AI Agent RAG pipeline.
 
 Responsibilities:
 - Connect to Qdrant
-- Create collection
-- Store embeddings and chunks
-- Perform similarity search
+- Create hybrid collection (dense + sparse)
+- Store embeddings and chunks with both vector types
+- Perform hybrid similarity search (dense cosine + sparse BM25 fused by RRF)
 """
 
 from typing import List, Optional, Dict
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import (
+    Distance,
+    VectorParams,
+    PointStruct,
+    SparseVectorParams,
+    SparseIndexParams,
+    SparseVector,
+    Prefetch,
+    FusionQuery,
+    Fusion,
+)
 from src.ingestion_pipeline.schemas import Chunk
 from src.utilities.logger import get_module_logger
 from src.config import config
@@ -42,47 +52,74 @@ class VectorStore:
 
         self._create_collection()
 
-    # -----------------------------
+    # -------------------------------------------------------
     # Create collection
-    # -----------------------------
+    # -------------------------------------------------------
     def _create_collection(self):
 
         collections = self.client.get_collections().collections
         existing = [c.name for c in collections]
 
         if self.collection_name in existing:
-            logger.info("Collection already exists")
+            logger.info("Collection already exists: %s", self.collection_name)
             return
 
-        logger.info("Creating collection: %s", self.collection_name)
+        logger.info("Creating hybrid collection (dense + sparse): %s", self.collection_name)
 
         self.client.create_collection(
             collection_name=self.collection_name,
-            vectors_config=VectorParams(
-                size=self.vector_size,
-                distance=Distance.COSINE
-            )
+            vectors_config={
+                #  "dense" — standard semantic embedding vector
+                "dense": VectorParams(
+                    size=self.vector_size,
+                    distance=Distance.COSINE
+                )
+            },
+            sparse_vectors_config={
+                #  "sparse" — BM25 keyword matching vector
+                # on_disk=False keeps the index in RAM for faster search
+                "sparse": SparseVectorParams(
+                    index=SparseIndexParams(on_disk=False)
+                )
+            }
         )
 
-    # -----------------------------
+        logger.info("Hybrid collection created successfully")
+
+    # -------------------------------------------------------
     # Insert chunks
-    # -----------------------------
+
     def add_documents(
         self,
         chunks: List[Chunk],
-        embeddings: List[List[float]]
+        dense_embeddings: List[List[float]],
+        sparse_vectors: Optional[List[Dict]] = None
     ):
         logger.info("Storing %d chunks in vector database", len(chunks))
 
-        if not chunks or not embeddings:
+        if not chunks or not dense_embeddings:
             logger.info("No chunks or embeddings to store. Skipping upsert.")
             return
 
         points = []
 
-        for chunk, vector in zip(chunks, embeddings):
+        for i, (chunk, dense) in enumerate(zip(chunks, dense_embeddings)):
             payload = chunk.metadata.copy()
             payload["content"] = chunk.content
+
+            # Build vector dict depending on sparse availability
+            if sparse_vectors and i < len(sparse_vectors):
+                sv = sparse_vectors[i]
+                vector = {
+                    "dense": dense,
+                    "sparse": SparseVector(
+                        indices=sv["indices"],
+                        values=sv["values"]
+                    )
+                }
+            else:
+                # Fallback: dense only — still valid for the collection
+                vector = {"dense": dense}
 
             point = PointStruct(
                 id=chunk.id,
@@ -93,7 +130,7 @@ class VectorStore:
             points.append(point)
 
         if not points:
-            logger.info("Zero points to upsert after processing chunks. Skipping.")
+            logger.info("Zero points to upsert after processing. Skipping.")
             return
 
         try:
@@ -107,9 +144,9 @@ class VectorStore:
 
         logger.info("Chunks stored successfully")
 
-    # -----------------------------
+    # -------------------------------------------------------
     # Delete chunks
-    # -----------------------------
+    # -------------------------------------------------------
     def delete_documents(self, filter_conditions: Optional[Dict[str, str]] = None):
         """
         Delete points matching the filter conditions.
@@ -125,9 +162,9 @@ class VectorStore:
 
         logger.info("Documents deleted successfully")
 
-    # -----------------------------
-    # Search (Similarity Search)
-    # -----------------------------
+    # -------------------------------------------------------
+    # Build filter helper
+    # -------------------------------------------------------
     def _build_query_filter(self, filter_conditions: Optional[Dict[str, str]] = None):
         if not filter_conditions:
             return None
@@ -140,37 +177,75 @@ class VectorStore:
         ]
         return models.Filter(must=conditions)
 
-    def search(
+    # -------------------------------------------------------
+    # Hybrid search  
+    # -------------------------------------------------------
+   
+    def hybrid_search(
         self,
-        query_vector: List[float],
+        dense_vector: List[float],
+        sparse_vector: Optional[Dict] = None,
         limit: int = 5,
         score_threshold: Optional[float] = None,
         filter_conditions: Optional[Dict[str, str]] = None
-    ):
+    ) -> list:
         """
-        Perform similarity search in Qdrant
+        Perform hybrid similarity search (dense + sparse BM25 fused by RRF).
 
         Args:
-            query_vector: embedding of the query
-            limit: number of results (top_k)
-            score_threshold: minimum similarity score
-            filter_conditions: dict for metadata filtering
+            dense_vector:      float embedding of the query
+            sparse_vector:     BM25 sparse dict {"indices": [...], "values": [...]}
+                               Pass None to fall back to dense-only search.
+            limit:             number of results to return (top_k)
+            score_threshold:   minimum score filter applied after fusion
+            filter_conditions: metadata key/value filter (e.g. {"type_doc": "task_doc"})
 
         Returns:
-            List of points
+            List of scored points with payload
         """
-
-        logger.info("Performing similarity search (top_k=%d)", limit)
+        logger.info(
+            "Performing %s search (top_k=%d)",
+            "hybrid" if sparse_vector else "dense",
+            limit
+        )
 
         query_filter = self._build_query_filter(filter_conditions)
 
-        results = self.client.query_points(
-            collection_name=self.collection_name,
-            query=query_vector,
-            limit=limit,
-            query_filter=query_filter,
-            with_payload=True
-        )
+        if sparse_vector is not None:
+            # --- Hybrid path: dense + sparse prefetch, RRF fusion ---
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                prefetch=[
+                    Prefetch(
+                        query=dense_vector,
+                        using="dense",
+                        limit=20,
+                        filter=query_filter
+                    ),
+                    Prefetch(
+                        query=SparseVector(
+                            indices=sparse_vector["indices"],
+                            values=sparse_vector["values"]
+                        ),
+                        using="sparse",
+                        limit=20,
+                        filter=query_filter
+                    )
+                ],
+                query=FusionQuery(fusion=Fusion.RRF),
+                limit=limit,
+                with_payload=True
+            )
+        else:
+            # --- Dense-only fallback ---
+            results = self.client.query_points(
+                collection_name=self.collection_name,
+                query=dense_vector,
+                using="dense",
+                limit=limit,
+                query_filter=query_filter,
+                with_payload=True
+            )
 
         points = results.points
 
@@ -181,13 +256,35 @@ class VectorStore:
 
         return points
 
+    # -------------------------------------------------------
+    # search() — kept for backward compatibility
+    # -------------------------------------------------------
+    def search(
+        self,
+        query_vector: List[float],
+        limit: int = 5,
+        score_threshold: Optional[float] = None,
+        filter_conditions: Optional[Dict[str, str]] = None
+    ) -> list:
+        """
+        Dense-only similarity search. Kept for backward compatibility.
+        Prefer hybrid_search() for production RAG queries.
+        """
+        return self.hybrid_search(
+            dense_vector=query_vector,
+            sparse_vector=None,
+            limit=limit,
+            score_threshold=score_threshold,
+            filter_conditions=filter_conditions
+        )
+
     def search_by_doc_type(
         self,
         query_vector: List[float],
         doc_type: str,
         limit: int = 5,
         score_threshold: Optional[float] = None,
-    ):
+    ) -> list:
         return self.search(
             query_vector=query_vector,
             limit=limit,
@@ -195,14 +292,13 @@ class VectorStore:
             filter_conditions={"type_doc": doc_type}
         )
 
-    # -----------------------------
-    # Optional: Format results
-    # -----------------------------
-    def format_results(self, points):
+    # -------------------------------------------------------
+    # Format results helper
+    # -------------------------------------------------------
+    def format_results(self, points) -> List[Dict]:
         """
-        Format results for easier usage in RAG
+        Format raw Qdrant points into clean dicts for RAG usage.
         """
-
         return [
             {
                 "score": p.score,

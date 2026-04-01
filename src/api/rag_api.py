@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.embedder import Embedder
+from src.ingestion_pipeline.sparse_embedder import SparseEmbedder
 from src.utilities.logger import get_module_logger
 from src.llm.prompt import WORKFLOW_GENERATION_PROMPT, build_workflow_generation_prompt
 from src.config import config
@@ -320,7 +321,21 @@ async def query_workflow(payload: QueryWorkflowRequest):
 
     try:
         store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
-        points = store.search(query_vector=query_vector, limit=payload.top_k)
+
+        # Build sparse query vector from user question (BM25 keywords)
+        sparse_query = SparseEmbedder.get_instance().embed_text(payload.question)
+
+        points = store.hybrid_search(
+            dense_vector=query_vector,
+            sparse_vector=sparse_query,
+            limit=payload.top_k
+        )
+
+        # Fallback to dense-only if hybrid returns no results
+        if not points:
+            logger.warning("Hybrid search returned no points, falling back to dense-only")
+            points = store.search(query_vector=query_vector, limit=payload.top_k)
+
     except Exception as e:
         logger.exception("Failed vector search")
         raise HTTPException(status_code=503, detail=f"Vector store query error: {str(e)}")
