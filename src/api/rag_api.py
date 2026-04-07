@@ -21,7 +21,7 @@ from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.embedder import Embedder
 from src.ingestion_pipeline.sparse_embedder import SparseEmbedder
 from src.utilities.logger import get_module_logger
-from src.llm.prompt import WORKFLOW_GENERATION_PROMPT, build_workflow_generation_prompt
+from src.prompts.prompt import WORKFLOW_GENERATION_PROMPT, build_workflow_generation_prompt
 from src.config import config
 
 logger = get_module_logger("rag_api")
