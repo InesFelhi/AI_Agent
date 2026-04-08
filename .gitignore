@@ -20,5 +20,5 @@ logs/
 
 # Ignore test files
 tests/
-src/llm/
+src/ingestion_pipeline/
 

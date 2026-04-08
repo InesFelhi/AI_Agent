@@ -82,11 +82,15 @@ def chunk_documents(
         else:
             type_doc = _map_type_doc_by_folder(processed.parent.name)
 
+        # Extract the real document title from the markdown content (# ... header)
+        # Example: "cmd.md" -> read content -> find "# Cmd Stage" -> document_title = "Cmd Stage"
+        document_title = chunker._extract_document_title(text)
+
         metadata = {
             "document_id": processed.stem,
             "file_name": processed.name,
             "type_doc": type_doc,
-            "document_title": processed.stem,
+            "document_title": document_title,  # Use the real title, not just filename
         }
 
         # Always use the raw doc_hash from base_metadata (calculated on raw upload content)

@@ -292,6 +292,62 @@ class VectorStore:
             filter_conditions={"type_doc": doc_type}
         )
 
+    def fetch_points_by_filter(
+        self,
+        filter_conditions: Optional[Dict[str, str]] = None,
+        batch_size: int = 100
+    ) -> list:
+        """
+        Fetch all points matching the given metadata filter using Qdrant scroll.
+        """
+        points = []
+        offset = None
+        query_filter = self._build_query_filter(filter_conditions)
+
+        while True:
+            result, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                scroll_filter=query_filter,
+                limit=batch_size,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False
+            )
+
+            points.extend(result)
+
+            if next_offset is None:
+                break
+
+            offset = next_offset
+
+        return points
+
+    def get_document_text_by_title(
+        self,
+        document_title: str,
+        doc_type: str = "task_doc"
+    ) -> Optional[str]:
+        """
+        Retrieve the full document text for a task document by title.
+
+        This reconstructs the document from its Qdrant chunks by sorting
+        them by chunk_index and joining their content.
+        """
+        points = self.fetch_points_by_filter(
+            filter_conditions={
+                "type_doc": doc_type,
+                "document_title": document_title
+            }
+        )
+
+        if not points:
+            return None
+
+        points.sort(key=lambda p: p.payload.get("chunk_index", 0))
+        contents = [p.payload.get("content", "") for p in points if p.payload.get("content")]
+        return "\n\n".join(contents).strip()
+
     # -------------------------------------------------------
     # Format results helper
     # -------------------------------------------------------
