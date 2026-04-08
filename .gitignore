@@ -20,5 +20,4 @@ logs/
 
 # Ignore test files
 tests/
-src/ingestion_pipeline/
 
