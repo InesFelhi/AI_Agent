@@ -1455,3 +1455,5 @@ AttributeError: 'DocumentCleaner' object has no attribute '_convert_mermaid'
 2026-04-09 23:48:38 | INFO | document_cleaner | Cleaning completed: data\processed\workflows\runtime-resolver.md
 2026-04-09 23:48:38 | INFO | document_cleaner | Cleaning started: data\raw\workflows\variables.md
 2026-04-09 23:48:38 | INFO | document_cleaner | Cleaning completed: data\processed\workflows\variables.md
+2026-04-12 23:49:48 | INFO | document_cleaner | Cleaning started: temp\http-request.md
+2026-04-12 23:49:48 | INFO | document_cleaner | Cleaning completed: data\processed\http-request.md

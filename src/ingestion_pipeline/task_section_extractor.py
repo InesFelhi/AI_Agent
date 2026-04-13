@@ -18,6 +18,14 @@ from src.ingestion_pipeline.vector_store import VectorStore
 logger = get_module_logger("task_section_extractor")
 
 
+SECTION_TITLE_ALIASES = {
+    "Summary": ["Summary"],
+    "Detailed description": ["Detailed description", "Description"],
+    "Input parameters": ["Input parameters", "Input parameter", "Parameters"],
+    "Outputs": ["Outputs","Output parameters" ,"Output parameters", "Output parameter", "Output"]
+}
+
+
 def extract_section(text: str, section_title: str) -> Optional[str]:
     """
     Extract a specific section from markdown document.
@@ -29,13 +37,15 @@ def extract_section(text: str, section_title: str) -> Optional[str]:
     Returns:
         Section content or None if not found
     """
-    # Regex to find ## Section Title and capture content until next ## or end of file
-    pattern = rf"^##\s+{re.escape(section_title)}\s*$(.*?)(?=^##\s+|\Z)"
-    match = re.search(pattern, text, re.MULTILINE | re.DOTALL)
-    
-    if match:
-        content = match.group(1).strip()
-        return content
+    aliases = SECTION_TITLE_ALIASES.get(section_title, [section_title])
+
+    for alias in aliases:
+        pattern = rf"^\s*#{{1,6}}\s+{re.escape(alias)}\s*$\n?(.*?)(?=^\s*#{{1,6}}\s+|\Z)"
+        match = re.search(pattern, text, re.MULTILINE | re.DOTALL | re.IGNORECASE)
+        if match:
+            content = match.group(1).strip()
+            return content
+
     return None
 
 
