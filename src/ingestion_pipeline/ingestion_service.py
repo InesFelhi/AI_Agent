@@ -74,6 +74,29 @@ def _check_existing_hash(store: VectorStore, document_id: str) -> Optional[str]:
     return None
 
 
+def infer_doc_type_from_path(path: Path) -> str:
+    """
+    Infer document type from the file path.
+
+    Rules:
+    - if any path component contains 'task'         -> task_doc
+    - if any path component contains 'workflow'     -> workflow_doc
+    - otherwise                                     -> app_doc
+
+    This supports nested folders under docs/en, for example:
+    - tasks/...     => task_doc
+    - workflows/... => workflow_doc
+    - support/...   => app_doc
+    """
+    normalized_parts = [part.lower() for part in path.parts]
+
+    if any("task" in part for part in normalized_parts):
+        return "task_doc"
+    if any("workflow" in part for part in normalized_parts):
+        return "workflow_doc"
+    return "app_doc"
+
+
 # -------------------------------------------------------
 # Step 1 — Clean
 # -------------------------------------------------------
@@ -111,7 +134,7 @@ def chunk_documents(
         if "type_doc" in base_metadata:
             type_doc = base_metadata["type_doc"]
         else:
-            type_doc = _map_type_doc_by_folder(processed.parent.name)
+            type_doc = infer_doc_type_from_path(processed)
 
         document_title = chunker._extract_document_title(text)
 
@@ -152,7 +175,7 @@ def _chunk_single_file(
     text = processed_file.read_text(encoding="utf-8")
 
     if "type_doc" not in file_metadata:
-        file_metadata["type_doc"] = _map_type_doc_by_folder(processed_file.parent.name)
+        file_metadata["type_doc"] = infer_doc_type_from_path(processed_file)
 
     document_title = chunker._extract_document_title(text)
 
@@ -419,6 +442,6 @@ def ingest_pipeline(
 
 
 if __name__ == "__main__":
-    raw_docs = Path("data/raw")
+    raw_docs = Path("andromate_docs/docs/en")
     processed_docs = Path("data/processed")
     ingest_pipeline(raw_docs, processed_docs)
