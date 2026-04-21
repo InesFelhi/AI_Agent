@@ -23,4 +23,7 @@ tests/
 
 #Ignore andromate_docs files 
 andromate_docs/
+src/workflow/json_retry_handler.py
+src/workflow/json_validator.py
+src/workflow/workflow_processor.py
 
