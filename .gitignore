@@ -23,5 +23,4 @@ tests/
 
 #Ignore andromate_docs files 
 andromate_docs/
-src/workflow/workflow_processor.py
 
