@@ -10,16 +10,27 @@ from qdrant_client import QdrantClient
 from src.config import config
 from src.ingestion_pipeline.embedder import Embedder
 from src.ingestion_pipeline.sparse_embedder import SparseEmbedder
-from src.ingestion_pipeline.task_section_extractor import build_workflow_context_for_tasks
 from src.ingestion_pipeline.vector_store import VectorStore
+from src.ingestion_pipeline.task_section_extractor import build_workflow_context_for_tasks
+
 from src.llm import create_llm_client
-from src.prompts import build_workflow_generation_prompt, build_workflow_correction_prompt, build_qa_prompt
+from src.prompts import (
+    build_workflow_generation_prompt,
+    build_workflow_correction_prompt,
+    build_qa_prompt
+)
+
 from src.rag.query_rewriter import QueryRewriter
+from src.workflow.workflow_planner import WorkflowPlanner
 from src.utilities.logger import get_module_logger
 
 logger = get_module_logger("chat_api")
 security = HTTPBearer()
 
+
+# =========================
+# MODELS
+# =========================
 
 class ChatRequest(BaseModel):
     query: str
@@ -30,15 +41,13 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     intent: str
     task_names: List[str]
-    result: str
+    result: Any
     metadata: Dict[str, Any]
 
 
-def _get_client_ip(request) -> str:
-    if request.client and request.client.host:
-        return request.client.host
-    return "unknown"
-
+# =========================
+# SECURITY
+# =========================
 
 async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
     if credentials.credentials != config.API_KEY:
@@ -49,7 +58,12 @@ async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(sec
         )
 
 
+# =========================
+# APP INIT
+# =========================
+
 app = FastAPI(title=config.API_TITLE + " Chat API", version=config.API_VERSION)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=list(config.CORS_ALLOW_ORIGINS) if config.CORS_ALLOW_ORIGINS != ("*",) else ["*"],
@@ -59,8 +73,11 @@ app.add_middleware(
 )
 
 
+# =========================
+# UTILS
+# =========================
+
 def _extract_json_from_query(raw_query: str) -> Optional[str]:
-    # If the user query contains an embedded JSON workflow, extract the first JSON object.
     start = raw_query.find("{")
     end = raw_query.rfind("}")
     if start != -1 and end != -1 and end > start:
@@ -68,137 +85,223 @@ def _extract_json_from_query(raw_query: str) -> Optional[str]:
     return None
 
 
+def _parse_llm_json_result(raw_text: str) -> Any:
+    if not raw_text:
+        return raw_text
+
+    try:
+        return json.loads(raw_text)
+    except json.JSONDecodeError:
+        json_fragment = _extract_json_from_query(raw_text)
+        if json_fragment:
+            try:
+                return json.loads(json_fragment)
+            except json.JSONDecodeError:
+                pass
+
+    return raw_text
+
+
+# =========================
+# MAIN ENDPOINT
+# =========================
+
 @app.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
 async def chat_endpoint(payload: ChatRequest):
+
+    # INIT
     provider = payload.provider or config.LLM_PROVIDER or "openai"
-    llm_client = create_llm_client(provider=provider)
-    qdrant_client = QdrantClient(host=config.QDRANT_HOST, port=config.QDRANT_PORT)
+    llm = create_llm_client(provider=provider)
+
+    qdrant_client = QdrantClient(
+        host=config.QDRANT_HOST,
+        port=config.QDRANT_PORT
+    )
+
     embedder = Embedder.get_instance()
     sparse_embedder = SparseEmbedder.get_instance()
     store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
 
-    query_rewriter = QueryRewriter(
-        llm_client=llm_client,
+    rewriter = QueryRewriter(
+        llm_client=llm,
         qdrant_client=qdrant_client,
         collection_name=config.QDRANT_COLLECTION_NAME,
         cache_ttl_seconds=600
     )
 
-    rewritten = query_rewriter.rewrite(payload.query)
-    intent = rewritten["intent"]
-    task_names = rewritten.get("task_names", [])
-    search_query = rewritten.get("search_query_en", payload.query)
+    planner = WorkflowPlanner(
+        llm_client=llm,
+        qdrant_client=qdrant_client,
+        collection_name=config.QDRANT_COLLECTION_NAME
+    )
 
+    # =====================================================
+    # STEP 1: REWRITER
+    # =====================================================
+    rewrite = rewriter.rewrite(payload.query)
+
+    intent = rewrite["intent"]
+    task_names = rewrite.get("task_names", [])
+    search_query = rewrite.get("search_query_en", payload.query)
+
+    logger.info(f"[CHAT_API] intent={intent}")
+    logger.info(f"[CHAT_API] task_names={task_names}")
+
+    # =====================================================
+    # STEP 2: PLANNER
+    # =====================================================
+    plan_result = None
+    plan = None
+
+    if intent in {"workflow_generation", "workflow_correction"}:
+        try:
+            plan_result = planner.plan(
+                user_request=search_query,   # ✅ FIXED
+                suggested_tasks=task_names
+            )
+
+            if not plan_result["success"]:
+                raise Exception(plan_result.get("error"))
+
+            plan = plan_result["plan"]
+
+            logger.info(f"[CHAT_API] planner confidence={plan_result['confidence']}")
+
+        except Exception as e:
+            logger.error(f"[CHAT_API] Planner error: {str(e)}")
+            plan_result = {"success": False, "error": str(e)}
+
+    # =====================================================
+    # STEP 3: CONTEXT
+    # =====================================================
     context = ""
-    workflow_text = ""
+    task_examples = ""
 
-    if intent == "qa":
-        dense_vector = embedder.embed_text(search_query)
-        sparse_vector = sparse_embedder.embed_text(search_query)
+    if intent in {"workflow_generation", "workflow_correction"}:
+
+        # ✅ USE PLANNER TASKS FIRST
+        required_tasks = (
+            plan.get("required_tasks", task_names)
+            if plan else task_names
+        )
+
+        logger.info(f"[CHAT_API] required_tasks={required_tasks}")
+
+        result_context = build_workflow_context_for_tasks(
+            task_names=required_tasks,
+            store=store,
+            internal_names=required_tasks
+        )
+
+        context = result_context.get("context", "")
+        task_examples = result_context.get("task_examples", "")
+
+        # fallback
+        if not context:
+            dense = embedder.embed_text(search_query)
+            sparse = sparse_embedder.embed_text(search_query)
+
+            points = store.hybrid_search(
+                dense_vector=dense,
+                sparse_vector=sparse,
+                limit=5,
+                filter_conditions={"type_doc": "task_doc"}
+            )
+
+            context = "\n\n".join([
+                p.payload.get("content", "")
+                for p in points
+            ])
+
+    elif intent == "qa":
+
+        dense = embedder.embed_text(search_query)
+        sparse = sparse_embedder.embed_text(search_query)
+
         points = store.hybrid_search(
-            dense_vector=dense_vector,
-            sparse_vector=sparse_vector,
+            dense_vector=dense,
+            sparse_vector=sparse,
             limit=5,
             filter_conditions={"type_doc": "task_doc"}
         )
 
-        if not points:
-            points = store.search(query_vector=dense_vector, limit=5, score_threshold=None)
+        context = "\n\n".join([
+            f"# {p.payload.get('section_title')}\n{p.payload.get('content')}"
+            for p in points
+        ])
 
-        context_parts = []
-        for point in points:
-            section_title = point.payload.get("section_title", "unknown")
-            content = point.payload.get("content", "")
-            context_parts.append(f"# {section_title}\n{content}")
-        context = "\n\n---\n\n".join(context_parts)
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported intent: {intent}")
+
+    # =====================================================
+    # STEP 4: LLM GENERATION
+    # =====================================================
+
+    if intent == "workflow_generation":
+
+        system_prompt, user_prompt = build_workflow_generation_prompt(
+            context=context,
+            instruction=payload.query,
+            plan=plan,  # ✅ PASS PLANNER PLAN
+            task_examples=task_examples
+        )
+
+        result = llm.complete(
+            system=system_prompt,
+            user=user_prompt,
+            max_tokens=2000,
+            temperature=0.1
+        )
+        result = _parse_llm_json_result(result)
+
+    elif intent == "workflow_correction":
+
+        if payload.workflow:
+            workflow_text = json.dumps(payload.workflow, indent=2)
+        else:
+            workflow_text = _extract_json_from_query(payload.query) or "{}"
+
+        system_prompt, user_prompt = build_workflow_correction_prompt(
+            context=context,
+            workflow=workflow_text,
+            correction_instruction=payload.query,
+            task_examples=task_examples
+        )
+
+        result = llm.complete(
+            system=system_prompt,
+            user=user_prompt,
+            max_tokens=2000,
+            temperature=0.1
+        )
+        result = _parse_llm_json_result(result)
+
+    elif intent == "qa":
 
         user_prompt = build_qa_prompt(
             context=context,
             question=payload.query
         )
-        result = llm_client.complete(
+
+        result = llm.complete(
             system="You are a helpful assistant for Android workflow automation.",
             user=user_prompt,
             max_tokens=1000,
             temperature=0.3
         )
 
-        return ChatResponse(
-            intent=intent,
-            task_names=task_names,
-            result=result,
-            metadata={
-                "retrieved_documents": [
-                    {
-                        "document_id": p.payload.get("document_id"),
-                        "section_title": p.payload.get("section_title"),
-                        "score": getattr(p, "score", None)
-                    }
-                    for p in points
-                ]
-            }
-        )
-
-    if intent in {"workflow_generation", "workflow_correction"}:
-        if task_names:
-            context = build_workflow_context_for_tasks(task_names, store)
-
-        if not context:
-            dense_vector = embedder.embed_text(search_query)
-            sparse_vector = sparse_embedder.embed_text(search_query)
-            points = store.hybrid_search(
-                dense_vector=dense_vector,
-                sparse_vector=sparse_vector,
-                limit=5,
-                filter_conditions={"type_doc": "task_doc"}
-            )
-            if not points:
-                points = store.search(query_vector=dense_vector, limit=5, score_threshold=None)
-            context = "\n\n".join([p.payload.get("content", "") for p in points])
-
-        if intent == "workflow_generation":
-            system_prompt, user_prompt = build_workflow_generation_prompt(
-                context=context,
-                instruction=payload.query
-            )
-            result = llm_client.complete(
-                system=system_prompt,
-                user=user_prompt,
-                max_tokens=2000,
-                temperature=0.1
-            )
-
-            return ChatResponse(
-                intent=intent,
-                task_names=task_names,
-                result=result,
-                metadata={"context_length": len(context)}
-            )
-
-        if intent == "workflow_correction":
-            if payload.workflow is not None:
-                workflow_text = json.dumps(payload.workflow, indent=2)
-            else:
-                candidate_json = _extract_json_from_query(payload.query)
-                workflow_text = candidate_json or "{}"
-
-            system_prompt, user_prompt = build_workflow_correction_prompt(
-                context=context,
-                workflow=workflow_text,
-                correction_instruction=payload.query
-            )
-            result = llm_client.complete(
-                system=system_prompt,
-                user=user_prompt,
-                max_tokens=2000,
-                temperature=0.1
-            )
-
-            return ChatResponse(
-                intent=intent,
-                task_names=task_names,
-                result=result,
-                metadata={"workflow_provided": bool(payload.workflow), "context_length": len(context)}
-            )
-
-    raise HTTPException(status_code=400, detail=f"Unsupported intent: {intent}")
+    # =====================================================
+    # RESPONSE
+    # =====================================================
+    return ChatResponse(
+        intent=intent,
+        task_names=task_names,
+        result=result,
+        metadata={
+            "plan": plan if plan_result and plan_result.get("success") else None,
+            "plan_confidence": plan_result.get("confidence") if plan_result else None,
+            "plan_ambiguities": plan_result.get("ambiguities") if plan_result else [],
+            "context_length": len(context),
+            "source": intent
+        }
+    )

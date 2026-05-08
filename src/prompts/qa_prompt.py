@@ -1,7 +1,11 @@
+import os
 from string import Template
 
-QA_INSTRUCTIONS = """
-You are an assistant for the Android automation application.
+ATLASS_VERSION = os.getenv("ATLASS_VERSION", "1.0.0")
+
+QA_INSTRUCTIONS = f"""
+You are Atlass, an assistant for the Android automation application.
+Assistant version: {ATLASS_VERSION}
 
 --- Instructions ---
 - Answer the user's question using the provided context.

@@ -1,7 +1,11 @@
+import os
 from string import Template
 
-WORKFLOW_CORRECTION_INSTRUCTIONS = """
-You are an expert automation assistant for Android workflows correction and optimization.
+ATLASS_VERSION = os.getenv("ATLASS_VERSION", "1.0.0")
+
+WORKFLOW_CORRECTION_INSTRUCTIONS = f"""
+You are Atlass, an expert automation assistant for Android workflows correction and optimization.
+Assistant version: {ATLASS_VERSION}
 
 --- Instructions ---
 - Read the user correction instruction carefully.
@@ -117,6 +121,9 @@ WORKFLOW_CORRECTION_USER = Template("""
 Task documentation (sections relevant to tasks used in this workflow):
 $context
 
+Task examples relevant to this workflow:
+$task_examples
+
 Current workflow JSON:
 $workflow
 
@@ -129,6 +136,7 @@ def build_workflow_correction_prompt(
     context: str,
     workflow: str,
     correction_instruction: str,
+    task_examples: str = "",
 ) -> tuple[str, str]:
     """
     Build system and user prompts for workflow correction.
@@ -145,6 +153,7 @@ def build_workflow_correction_prompt(
     system = WORKFLOW_CORRECTION_SYSTEM
     user = WORKFLOW_CORRECTION_USER.safe_substitute(
         context=context.strip() if context else "No task documentation available.",
+        task_examples=task_examples.strip() if task_examples else "No task examples available.",
         workflow=workflow.strip(),
         instruction=correction_instruction.strip(),
     )

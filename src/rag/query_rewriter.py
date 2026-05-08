@@ -30,6 +30,7 @@ from typing import Dict, List
 from qdrant_client import QdrantClient
 from src.llm import LLMClient
 from src.prompts.query_rewriter_prompt import build_query_rewriter_prompt
+from src.rag.task_registry import TaskNameRegistry
 from src.utilities.logger import get_module_logger
 
 logger = get_module_logger("query_rewriter")
@@ -49,125 +50,11 @@ def _fallback_result(raw_query: str) -> Dict:
 
 
 # -------------------------------------------------------
-# TaskNameRegistry
-# -------------------------------------------------------
-
-class TaskNameRegistry:
-    """
-    Fetches and caches task names from Qdrant collection metadata.
-
-    How it works:
-        - Scrolls through all points where type_doc = "task_doc"
-        - Extracts unique document_title values from their payload
-        - Caches the result for `cache_ttl_seconds` (default 10 min)
-        - Refreshes automatically when TTL expires
-
-    This means:
-        - 30 tasks today   -> 30 names in the prompt
-        - 120 tasks later  -> 120 names in the prompt
-        - Zero code change required
-    """
-
-    def __init__(
-        self,
-        qdrant_client: QdrantClient,
-        collection_name: str,
-        cache_ttl_seconds: int = 600
-    ) -> None:
-        self.client = qdrant_client
-        self.collection_name = collection_name
-        self.cache_ttl = cache_ttl_seconds
-
-        self._cached_names: List[str] = []
-        self._last_loaded: float = 0.0
-
-    def get_task_names(self) -> List[str]:
-        """
-        Return list of task names, refreshing cache if TTL expired.
-
-        Returns:
-            List of task document titles e.g. ["CmdStage", "AppStage", ...]
-            Returns empty list if Qdrant is unreachable (non-blocking).
-        """
-        now = time.time()
-
-        if self._cached_names and (now - self._last_loaded) < self.cache_ttl:
-            logger.debug(
-                "[REGISTRY] Returning cached task names (%d tasks)",
-                len(self._cached_names)
-            )
-            return self._cached_names
-
-        logger.info("[REGISTRY] Loading task names from Qdrant...")
-        self._cached_names = self._load_from_qdrant()
-        self._last_loaded = now
-        logger.info(
-            "[REGISTRY] Loaded %d task names: %s",
-            len(self._cached_names),
-            self._cached_names
-        )
-        return self._cached_names
-
-    def _load_from_qdrant(self) -> List[str]:
-        """
-        Scroll through Qdrant and collect unique document_title values
-        from all chunks where type_doc = task_doc.
-
-        Returns:
-            Sorted list of unique task names
-        """
-        task_names = set()
-        offset = None
-
-        try:
-            while True:
-                result, next_offset = self.client.scroll(
-                    collection_name=self.collection_name,
-                    scroll_filter=self._build_task_filter(),
-                    limit=100,
-                    offset=offset,
-                    with_payload=True,
-                    with_vectors=False      # metadata only, no vectors needed
-                )
-
-                for point in result:
-                    title = point.payload.get("document_title")
-                    if title and isinstance(title, str) and title.strip():
-                        task_names.add(title.strip())
-
-                if next_offset is None:
-                    break
-
-                offset = next_offset
-
-        except Exception:
-            logger.exception(
-                "[REGISTRY] Failed to load task names from Qdrant. "
-                "Using cached list if available."
-            )
-            return self._cached_names or []
-
-        return sorted(task_names)
-
-    @staticmethod
-    def _build_task_filter():
-        from qdrant_client.models import Filter, FieldCondition, MatchValue
-        return Filter(
-            must=[
-                FieldCondition(
-                    key="type_doc",
-                    match=MatchValue(value="task_doc")
-                )
-            ]
-        )
-
-
-# -------------------------------------------------------
 # System prompt builder
 # -------------------------------------------------------
 
-def _build_system_prompt(task_names: List[str]) -> str:
-    return build_query_rewriter_prompt(task_names)
+def _build_system_prompt(task_metadata: List[Dict[str, str]]) -> str:
+    return build_query_rewriter_prompt(task_metadata)
 
 
 # -------------------------------------------------------
@@ -227,11 +114,11 @@ class QueryRewriter:
 
         logger.info("[REWRITER] Rewriting query: %.80s", raw_query)
 
-        # Step 1 — load task names from Qdrant (cached, refreshed every TTL)
-        task_names = self.registry.get_task_names()
+        # Step 1 — load task metadata from Qdrant (cached, refreshed every TTL)
+        task_metadata = self.registry.get_task_metadata()
 
-        # Step 2 — build prompt with current task list injected
-        system_prompt = _build_system_prompt(task_names)
+        # Step 2 — build prompt with current task list and summaries injected
+        system_prompt = _build_system_prompt(task_metadata)
 
         # Step 3 — call LLM
         try:

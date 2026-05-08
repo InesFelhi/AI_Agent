@@ -40,7 +40,11 @@ class OpenAIChatClient:
                 body = response.read().decode("utf-8")
                 return json.loads(body)
         except HTTPError as exc:
-            logger.error("OpenAI API request failed: %s", exc)
+            try:
+                error_body = exc.read().decode("utf-8")
+                logger.error("OpenAI API request failed: %s - body: %s", exc, error_body)
+            except Exception:
+                logger.error("OpenAI API request failed: %s - could not read error body", exc)
             raise
         except URLError as exc:
             logger.error("OpenAI connection error: %s", exc)
