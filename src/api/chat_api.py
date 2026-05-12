@@ -1,7 +1,7 @@
 import json
 from typing import Any, Dict, List, Optional
 
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
@@ -22,6 +22,7 @@ from src.prompts import (
 
 from src.rag.query_rewriter import QueryRewriter
 from src.workflow.workflow_planner import WorkflowPlanner
+from src.workflow.workflow_processor import WorkflowProcessor
 from src.utilities.logger import get_module_logger
 
 logger = get_module_logger("chat_api")
@@ -59,7 +60,7 @@ async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(sec
 
 
 # =========================
-# APP INIT
+# APP
 # =========================
 
 app = FastAPI(title=config.API_TITLE + " Chat API", version=config.API_VERSION)
@@ -92,10 +93,10 @@ def _parse_llm_json_result(raw_text: str) -> Any:
     try:
         return json.loads(raw_text)
     except json.JSONDecodeError:
-        json_fragment = _extract_json_from_query(raw_text)
-        if json_fragment:
+        fragment = _extract_json_from_query(raw_text)
+        if fragment:
             try:
-                return json.loads(json_fragment)
+                return json.loads(fragment)
             except json.JSONDecodeError:
                 pass
 
@@ -107,9 +108,11 @@ def _parse_llm_json_result(raw_text: str) -> Any:
 # =========================
 
 @app.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
-async def chat_endpoint(payload: ChatRequest):
+async def chat_endpoint(payload: ChatRequest, request: Request):
 
-    # INIT
+    # =========================
+    # INIT (per request)
+    # =========================
     provider = payload.provider or config.LLM_PROVIDER or "openai"
     llm = create_llm_client(provider=provider)
 
@@ -135,9 +138,12 @@ async def chat_endpoint(payload: ChatRequest):
         collection_name=config.QDRANT_COLLECTION_NAME
     )
 
-    # =====================================================
+    # 🔥 NEW (FROM CODE 1)
+    processor = WorkflowProcessor(llm_client=llm)
+
+    # =========================
     # STEP 1: REWRITER
-    # =====================================================
+    # =========================
     rewrite = rewriter.rewrite(payload.query)
 
     intent = rewrite["intent"]
@@ -147,16 +153,16 @@ async def chat_endpoint(payload: ChatRequest):
     logger.info(f"[CHAT_API] intent={intent}")
     logger.info(f"[CHAT_API] task_names={task_names}")
 
-    # =====================================================
+    # =========================
     # STEP 2: PLANNER
-    # =====================================================
+    # =========================
     plan_result = None
     plan = None
 
     if intent in {"workflow_generation", "workflow_correction"}:
         try:
             plan_result = planner.plan(
-                user_request=search_query,   # ✅ FIXED
+                user_request=search_query,
                 suggested_tasks=task_names
             )
 
@@ -165,27 +171,19 @@ async def chat_endpoint(payload: ChatRequest):
 
             plan = plan_result["plan"]
 
-            logger.info(f"[CHAT_API] planner confidence={plan_result['confidence']}")
-
         except Exception as e:
             logger.error(f"[CHAT_API] Planner error: {str(e)}")
             plan_result = {"success": False, "error": str(e)}
 
-    # =====================================================
+    # =========================
     # STEP 3: CONTEXT
-    # =====================================================
+    # =========================
     context = ""
     task_examples = ""
 
     if intent in {"workflow_generation", "workflow_correction"}:
 
-        # ✅ USE PLANNER TASKS FIRST
-        required_tasks = (
-            plan.get("required_tasks", task_names)
-            if plan else task_names
-        )
-
-        logger.info(f"[CHAT_API] required_tasks={required_tasks}")
+        required_tasks = plan.get("required_tasks", task_names) if plan else task_names
 
         result_context = build_workflow_context_for_tasks(
             task_names=required_tasks,
@@ -196,7 +194,6 @@ async def chat_endpoint(payload: ChatRequest):
         context = result_context.get("context", "")
         task_examples = result_context.get("task_examples", "")
 
-        # fallback
         if not context:
             dense = embedder.embed_text(search_query)
             sparse = sparse_embedder.embed_text(search_query)
@@ -208,10 +205,7 @@ async def chat_endpoint(payload: ChatRequest):
                 filter_conditions={"type_doc": "task_doc"}
             )
 
-            context = "\n\n".join([
-                p.payload.get("content", "")
-                for p in points
-            ])
+            context = "\n\n".join([p.payload.get("content", "") for p in points])
 
     elif intent == "qa":
 
@@ -233,33 +227,49 @@ async def chat_endpoint(payload: ChatRequest):
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported intent: {intent}")
 
-    # =====================================================
-    # STEP 4: LLM GENERATION
-    # =====================================================
+    # =========================
+    # STEP 4: LLM + VALIDATION FLOW (CODE 1 INTEGRATION)
+    # =========================
+
+    validation_meta = {}
 
     if intent == "workflow_generation":
 
         system_prompt, user_prompt = build_workflow_generation_prompt(
             context=context,
             instruction=payload.query,
-            plan=plan,  # ✅ PASS PLANNER PLAN
+            plan=plan,
             task_examples=task_examples
         )
 
-        result = llm.complete(
+        raw = llm.complete(
             system=system_prompt,
             user=user_prompt,
             max_tokens=2000,
             temperature=0.1
         )
-        result = _parse_llm_json_result(result)
+
+        proc = processor.process(raw)
+
+        if proc["success"]:
+            result = proc["workflow"]
+        else:
+            result = _parse_llm_json_result(proc["final_json"])
+
+        validation_meta = {
+            "validation_passed": proc["validation_passed"],
+            "retry_count": proc["retry_count"],
+            "errors_found": proc["errors_found"],
+            "processor_status": proc["status"]
+        }
 
     elif intent == "workflow_correction":
 
-        if payload.workflow:
-            workflow_text = json.dumps(payload.workflow, indent=2)
-        else:
-            workflow_text = _extract_json_from_query(payload.query) or "{}"
+        workflow_text = (
+            json.dumps(payload.workflow, indent=2)
+            if payload.workflow
+            else (_extract_json_from_query(payload.query) or "{}")
+        )
 
         system_prompt, user_prompt = build_workflow_correction_prompt(
             context=context,
@@ -268,13 +278,26 @@ async def chat_endpoint(payload: ChatRequest):
             task_examples=task_examples
         )
 
-        result = llm.complete(
+        raw = llm.complete(
             system=system_prompt,
             user=user_prompt,
             max_tokens=2000,
             temperature=0.1
         )
-        result = _parse_llm_json_result(result)
+
+        proc = processor.process(raw)
+
+        if proc["success"]:
+            result = proc["workflow"]
+        else:
+            result = _parse_llm_json_result(proc["final_json"])
+
+        validation_meta = {
+            "validation_passed": proc["validation_passed"],
+            "retry_count": proc["retry_count"],
+            "errors_found": proc["errors_found"],
+            "processor_status": proc["status"]
+        }
 
     elif intent == "qa":
 
@@ -290,9 +313,16 @@ async def chat_endpoint(payload: ChatRequest):
             temperature=0.3
         )
 
-    # =====================================================
+        validation_meta = {
+            "validation_passed": None,
+            "retry_count": 0,
+            "errors_found": [],
+            "processor_status": "not_applicable"
+        }
+
+    # =========================
     # RESPONSE
-    # =====================================================
+    # =========================
     return ChatResponse(
         intent=intent,
         task_names=task_names,
@@ -300,8 +330,9 @@ async def chat_endpoint(payload: ChatRequest):
         metadata={
             "plan": plan if plan_result and plan_result.get("success") else None,
             "plan_confidence": plan_result.get("confidence") if plan_result else None,
-            "plan_ambiguities": plan_result.get("ambiguities") if plan_result else [],
+            "plan_ambiguities": plan_result.get("ambiguities", []) if plan_result else [],
             "context_length": len(context),
-            "source": intent
+            "source": intent,
+            **validation_meta
         }
     )
