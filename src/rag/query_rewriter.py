@@ -30,7 +30,7 @@ from typing import Dict, List
 from qdrant_client import QdrantClient
 from src.llm import LLMClient
 from src.prompts.query_rewriter_prompt import build_query_rewriter_prompt
-from src.rag.task_registry import TaskNameRegistry
+from src.core.task_registry import UnifiedTaskRegistry
 from src.utilities.logger import get_module_logger
 
 logger = get_module_logger("query_rewriter")
@@ -85,12 +85,12 @@ class QueryRewriter:
             cache_ttl_seconds: task name cache duration in seconds (default 10 min)
         """
         self.llm = llm_client
-        self.registry = TaskNameRegistry(
+        self.registry = UnifiedTaskRegistry(
             qdrant_client=qdrant_client,
             collection_name=collection_name,
             cache_ttl_seconds=cache_ttl_seconds
         )
-        logger.info("QueryRewriter initialized with dynamic task registry")
+        logger.info("QueryRewriter initialized with unified task registry")
 
     def rewrite(self, raw_query: str) -> Dict:
         """

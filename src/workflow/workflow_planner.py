@@ -18,10 +18,11 @@ Why this is an AGENT:
 import json
 import time
 from typing import Dict, Any, Optional, List
+import time
 from qdrant_client import QdrantClient
 
 from src.llm import LLMClient
-from src.workflow.task_registry import TaskRegistry
+from src.core.task_registry import UnifiedTaskRegistry
 from src.prompts.planner_prompt import build_planner_prompt
 from src.utilities.logger import get_module_logger
 
@@ -49,12 +50,12 @@ class WorkflowPlanner:
             collection_name: Qdrant collection name
         """
         self.llm = llm_client
-        self.task_registry = TaskRegistry(
+        self.task_registry = UnifiedTaskRegistry(
             qdrant_client=qdrant_client,
             collection_name=collection_name,
             cache_ttl_seconds=600  # 10 min cache
         )
-        logger.info("WorkflowPlanner initialized")
+        logger.info("WorkflowPlanner initialized with unified task registry")
 
     def plan(self, user_request: str, suggested_tasks: List[str] = None) -> Dict[str, Any]:
         """

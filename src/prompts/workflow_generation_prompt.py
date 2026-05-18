@@ -60,6 +60,31 @@ A Compare node produces exactly ONE link entry with both "true" and "false" in t
   CORRECT: {{"from": "-1002", "true": "-1003", "false": "-1004"}}
   WRONG:   {{"from": "-1002", "true": "-1003"}} + {{"from": "-1002", "false": "-1004"}}
 
+⚠️ RULE D — Task Types (CRITICAL):
+- NORMAL tasks (output: data fields OR VoidResult): CmdStage, HttpRequest, TextReport, etc.
+  → Links format: {{"from": "X", "to": "Y"}}
+  → NO true/false branches allowed
+  → Cannot route execution based on conditions
+- CONDITIONAL tasks (output: boolean result): CompareNumber, CompareStrings, etc.
+  → Links format: {{"from": "X", "true": "Y", "false": "Z"}}
+  → ALWAYS produces true/false branches
+  → MUST route execution to both paths
+⚠️ IMPORTANT: To add branching after a Normal task, INSERT a Conditional task first. Never apply true/false branches directly to Normal tasks. Verify task type in task documentation (Summary section: "Task type: Normal" or "Task type: Conditional").
+
+⚠️ RULE E — Branch Completeness (CRITICAL):
+When a Conditional task creates true/false branches, BOTH branches MUST be complete:
+- Every id referenced in true/false Links MUST exist as an actual node in the workflow
+- Every node EXCEPT End must have at least ONE outgoing link in Links
+- If Compare(-1002) routes to true: -1003, false: -1004 → BOTH -1003 AND -1004 must exist
+- All referenced nodes must eventually route to an End node
+CORRECT PATTERN:
+  {{"from": "-1002", "true": "-1003", "false": "-1004"}}
+  {{"from": "-1003", "to": "-2000"}}  ← -1003 has outgoing link
+  {{"from": "-1004", "to": "-2000"}}  ← -1004 has outgoing link
+WRONG:
+  {{"from": "-1002", "true": "-1003", "false": "-1004"}}
+  {{"from": "-1003", "to": "-2000"}}  ← -1004 missing OR has no outgoing link
+
 --- Multi-task composition ---
 A workflow commonly chains multiple tasks together. Follow these patterns:
 
