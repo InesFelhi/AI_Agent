@@ -8,12 +8,17 @@ from pydantic import BaseModel
 from qdrant_client import QdrantClient
 
 from src.config import config
+
 from src.ingestion_pipeline.embedder import Embedder
 from src.ingestion_pipeline.sparse_embedder import SparseEmbedder
 from src.ingestion_pipeline.vector_store import VectorStore
-from src.ingestion_pipeline.task_section_extractor import build_workflow_context_for_tasks
+
+from src.ingestion_pipeline.task_section_extractor import (
+    build_workflow_context_for_tasks
+)
 
 from src.llm import create_llm_client
+
 from src.prompts import (
     build_workflow_generation_prompt,
     build_workflow_correction_prompt,
@@ -21,17 +26,20 @@ from src.prompts import (
 )
 
 from src.rag.query_rewriter import QueryRewriter
+
 from src.workflow.workflow_planner import WorkflowPlanner
 from src.workflow.workflow_processor import WorkflowProcessor
+
 from src.utilities.logger import get_module_logger
 
 logger = get_module_logger("chat_api")
+
 security = HTTPBearer()
 
 
-# =========================
+# =========================================================
 # MODELS
-# =========================
+# =========================================================
 
 class ChatRequest(BaseModel):
     query: str
@@ -39,18 +47,29 @@ class ChatRequest(BaseModel):
     provider: Optional[str] = None
 
 
+class WorkflowResult(BaseModel):
+    """Structured result for workflow generation and correction."""
+    workflow: Dict[str, Any]
+    explanation: str
+    validation_passed: bool
+    retry_count: int
+    errors_found: List[str] = []
+
+
 class ChatResponse(BaseModel):
     intent: str
     task_names: List[str]
-    result: Any
+    result: Any  # Union[WorkflowResult, Dict[str, Any], str] depending on intent
     metadata: Dict[str, Any]
 
 
-# =========================
+# =========================================================
 # SECURITY
-# =========================
+# =========================================================
 
-async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(security)):
+async def verify_api_key(
+    credentials: HTTPAuthorizationCredentials = Depends(security)
+):
     if credentials.credentials != config.API_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,11 +78,14 @@ async def verify_api_key(credentials: HTTPAuthorizationCredentials = Depends(sec
         )
 
 
-# =========================
+# =========================================================
 # APP
-# =========================
+# =========================================================
 
-app = FastAPI(title=config.API_TITLE + " Chat API", version=config.API_VERSION)
+app = FastAPI(
+    title=config.API_TITLE + " Chat API",
+    version=config.API_VERSION
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -74,9 +96,9 @@ app.add_middleware(
 )
 
 
-# =========================
-# UTILS
-# =========================
+# =========================================================
+# HELPERS
+# =========================================================
 
 def _extract_json_from_query(raw_query: str) -> Optional[str]:
     start = raw_query.find("{")
@@ -86,34 +108,48 @@ def _extract_json_from_query(raw_query: str) -> Optional[str]:
     return None
 
 
-def _parse_llm_json_result(raw_text: str) -> Any:
-    if not raw_text:
-        return raw_text
+def _parse_workflow_llm_output(raw: Any) -> Dict[str, Any]:
+    """
+    Normalise LLM output to:
+    {
+        "workflow": {...},
+        "explanation": "..."
+    }
+    """
+    if isinstance(raw, dict):
+        return raw
 
-    try:
-        return json.loads(raw_text)
-    except json.JSONDecodeError:
-        fragment = _extract_json_from_query(raw_text)
-        if fragment:
-            try:
-                return json.loads(fragment)
-            except json.JSONDecodeError:
-                pass
+    if isinstance(raw, str):
+        try:
+            return json.loads(raw)
+        except json.JSONDecodeError:
+            fragment = _extract_json_from_query(raw)
+            if fragment:
+                try:
+                    return json.loads(fragment)
+                except json.JSONDecodeError:
+                    pass
 
-    return raw_text
+    return {
+        "workflow": raw,
+        "explanation": ""
+    }
 
 
-# =========================
-# MAIN ENDPOINT
-# =========================
+# =========================================================
+# ENDPOINT
+# =========================================================
 
-@app.post("/chat", response_model=ChatResponse, dependencies=[Depends(verify_api_key)])
+@app.post(
+    "/chat",
+    response_model=ChatResponse,
+    dependencies=[Depends(verify_api_key)]
+)
 async def chat_endpoint(payload: ChatRequest, request: Request):
 
-    # =========================
-    # INIT (per request)
-    # =========================
+    # INIT
     provider = payload.provider or config.LLM_PROVIDER or "openai"
+
     llm = create_llm_client(provider=provider)
 
     qdrant_client = QdrantClient(
@@ -123,7 +159,10 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
 
     embedder = Embedder.get_instance()
     sparse_embedder = SparseEmbedder.get_instance()
-    store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
+
+    store = VectorStore(
+        collection_name=config.QDRANT_COLLECTION_NAME
+    )
 
     rewriter = QueryRewriter(
         llm_client=llm,
@@ -138,46 +177,29 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
         collection_name=config.QDRANT_COLLECTION_NAME
     )
 
-    # 🔥 NEW (FROM CODE 1)
     processor = WorkflowProcessor(llm_client=llm)
 
-    # =========================
-    # STEP 1: REWRITER
-    # =========================
+    # STEP 1 — REWRITE
     rewrite = rewriter.rewrite(payload.query)
 
     intent = rewrite["intent"]
     task_names = rewrite.get("task_names", [])
     search_query = rewrite.get("search_query_en", payload.query)
 
-    logger.info(f"[CHAT_API] intent={intent}")
-    logger.info(f"[CHAT_API] task_names={task_names}")
-
-    # =========================
-    # STEP 2: PLANNER
-    # =========================
-    plan_result = None
+    # STEP 2 — PLANNER
     plan = None
+    plan_result = None
 
     if intent in {"workflow_generation", "workflow_correction"}:
-        try:
-            plan_result = planner.plan(
-                user_request=search_query,
-                suggested_tasks=task_names
-            )
+        plan_result = planner.plan(
+            user_request=search_query,
+            suggested_tasks=task_names
+        )
 
-            if not plan_result["success"]:
-                raise Exception(plan_result.get("error"))
-
+        if plan_result.get("success"):
             plan = plan_result["plan"]
 
-        except Exception as e:
-            logger.error(f"[CHAT_API] Planner error: {str(e)}")
-            plan_result = {"success": False, "error": str(e)}
-
-    # =========================
-    # STEP 3: CONTEXT
-    # =========================
+    # STEP 3 — CONTEXT
     context = ""
     task_examples = ""
 
@@ -185,8 +207,10 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
 
         required_tasks = plan.get("required_tasks", task_names) if plan else task_names
 
+        resolved_tasks = rewriter.registry.resolve_list_to_document_titles(required_tasks)
+
         result_context = build_workflow_context_for_tasks(
-            task_names=required_tasks,
+            task_names=resolved_tasks,
             store=store,
             internal_names=required_tasks
         )
@@ -227,12 +251,13 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported intent: {intent}")
 
-    # =========================
-    # STEP 4: LLM + VALIDATION FLOW (CODE 1 INTEGRATION)
-    # =========================
-
+    # STEP 4 — LLM
     validation_meta = {}
+    result = None
 
+    # =========================
+    # GENERATION
+    # =========================
     if intent == "workflow_generation":
 
         system_prompt, user_prompt = build_workflow_generation_prompt(
@@ -242,19 +267,21 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
             task_examples=task_examples
         )
 
-        raw = llm.complete(
-            system=system_prompt,
-            user=user_prompt,
-            max_tokens=2000,
-            temperature=0.1
-        )
+        raw = llm.complete(system=system_prompt, user=user_prompt, max_tokens=2000, temperature=0.1)
 
         proc = processor.process(raw)
 
-        if proc["success"]:
-            result = proc["workflow"]
-        else:
-            result = _parse_llm_json_result(proc["final_json"])
+        # Extract workflow and explanation directly from processor output
+        workflow_dict = proc.get("workflow") or {}
+        explanation = proc.get("explanation") or ""
+
+        result = WorkflowResult(
+            workflow=workflow_dict,
+            explanation=explanation,
+            validation_passed=proc.get("validation_passed", False),
+            retry_count=proc.get("retry_count", 0),
+            errors_found=proc.get("errors_found", [])
+        )
 
         validation_meta = {
             "validation_passed": proc["validation_passed"],
@@ -263,6 +290,9 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
             "processor_status": proc["status"]
         }
 
+    # =========================
+    # CORRECTION
+    # =========================
     elif intent == "workflow_correction":
 
         workflow_text = (
@@ -278,19 +308,21 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
             task_examples=task_examples
         )
 
-        raw = llm.complete(
-            system=system_prompt,
-            user=user_prompt,
-            max_tokens=2000,
-            temperature=0.1
-        )
+        raw = llm.complete(system=system_prompt, user=user_prompt, max_tokens=2000, temperature=0.1)
 
         proc = processor.process(raw)
 
-        if proc["success"]:
-            result = proc["workflow"]
-        else:
-            result = _parse_llm_json_result(proc["final_json"])
+        # Extract workflow and explanation directly from processor output
+        workflow_dict = proc.get("workflow") or {}
+        explanation = proc.get("explanation") or ""
+
+        result = WorkflowResult(
+            workflow=workflow_dict,
+            explanation=explanation,
+            validation_passed=proc.get("validation_passed", False),
+            retry_count=proc.get("retry_count", 0),
+            errors_found=proc.get("errors_found", [])
+        )
 
         validation_meta = {
             "validation_passed": proc["validation_passed"],
@@ -299,12 +331,12 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
             "processor_status": proc["status"]
         }
 
-    elif intent == "qa":
+    # =========================
+    # QA
+    # =========================
+    else:
 
-        user_prompt = build_qa_prompt(
-            context=context,
-            question=payload.query
-        )
+        user_prompt = build_qa_prompt(context=context, question=payload.query)
 
         result = llm.complete(
             system="You are a helpful assistant for Android workflow automation.",
@@ -320,9 +352,7 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
             "processor_status": "not_applicable"
         }
 
-    # =========================
-    # RESPONSE
-    # =========================
+    # FINAL RESPONSE
     return ChatResponse(
         intent=intent,
         task_names=task_names,
