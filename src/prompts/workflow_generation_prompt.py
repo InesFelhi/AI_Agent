@@ -21,7 +21,12 @@ Assistant version: {ATLASS_VERSION}
   10. Output must be valid strict JSON only.
   11. Output must be a single JSON object with exactly two top-level keys: "workflow" and "explanation".
   12. The "workflow" key must contain the workflow JSON object as described in these rules.
-  13. The "explanation" key must contain a plain-text explanation of the generated workflow.
+  13. The "explanation" key must contain a concise explanation covering:
+      • RÉSUMÉ: What workflow does (1-2 lines)
+      • ÉTAPES: Each task (name, ID, inputs, outputs)
+      • FLUX: Path sequence with IDs
+      • VARIABLES: How data flows between tasks
+      • RÉSULTATS: Success/failure outcomes
   14. Do not include any explanation outside the "explanation" field.
 
 --- Rules for Parameters and Variables ---
@@ -86,6 +91,45 @@ Rules for multi-task workflows:
 - Conditional links (true/false) are used after Compare nodes only.
 - Unconditional links (to) are used after execution tasks (CmdStage, IntegerSingleOps, etc.).
 - You can have multiple End nodes for different exit paths (success, error, max retry reached).
+
+--- Explanation Format (MANDATORY TEMPLATE) ---
+"explanation": "RÉSUMÉ: [1-2 line summary]
+
+ÉTAPES:
+[N]. [TaskType] ([id]): [action]
+    INPUT: [what it receives]
+    OUTPUT: [what it produces]
+    WHY: [reason needed]
+
+[repeat for each task]
+
+FLUX: Start → [task sequence with IDs] → End
+
+VARIABLES FLOW:
+• [var1] from [TaskA] → [TaskB] uses it
+• [complete data chain shown]
+
+RÉSULTATS:
+✅ SUCCESS: [specific outcomes]
+❌ FAILURE: [error scenarios]"
+
+⚠️ CRITICAL - EXPLANATION RULES:
+1. Use REAL line breaks (\n) - NOT continuous text
+2. Each section on separate lines
+3. For EACH task: INPUT, OUTPUT, WHY (all mandatory)
+4. FLUX shows complete path with all IDs
+5. VARIABLES shows full data flow chain
+6. RÉSULTATS has BOTH ✅ and ❌
+7. Each line under 100 chars (readable)
+
+--- Pre-submission Checklist ---
+☐ RÉSUMÉ is 1-2 lines
+☐ ÉTAPES has ALL tasks with INPUT/OUTPUT/WHY
+☐ FLUX complete with all IDs
+☐ VARIABLES shows data chain
+☐ RÉSULTATS has both cases
+☐ Line breaks used properly
+☐ Readable format (not one line)
 """
 
 CANONICAL_EXAMPLE = """
@@ -148,9 +192,9 @@ CANONICAL_EXAMPLE = """
     {"from": "-1002", "true": "-2000", "false": "-1003"},
     {"from": "-1003", "to": "-1004"},
     {"from": "-1004", "true": "-2000", "false": "-1001"}
-  ]
+  ]  
 },
-"explanation": "This workflow runs a ping command, checks for errors, retries up to 5 times, and ends when ping succeeds or the maximum retry count is reached."
+"explanation": "RÉSUMÉ: Ping server, extract min/max values, display results. ÉTAPES: (1) CmdStage (-1001) ping -c 5 → $PING_OUTPUT,$PING_ERROR. (2) JavaCode (-1002) parse output → minValue,maxValue. (3) SetVariable (-1003,-1004) minValue→$MIN_VALUE, maxValue→$MAX_VALUE. (4) TextReport (-1005) display 'Min: $MIN_VALUE, Max: $MAX_VALUE'. FLUX: Start→CmdStage→JavaCode→SetVariable(2x)→TextReport→End. VARIABLES: $PING_OUTPUT from CmdStage→JavaCode parses→minValue,maxValue→SetVariable copies→$MIN_VALUE,$MAX_VALUE. RÉSULTATS: ✅ ping succeeds, min/max extracted, report displayed. ❌ timeout/parse error."
 }
 """
 
