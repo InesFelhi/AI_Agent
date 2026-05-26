@@ -40,10 +40,17 @@ logger = get_module_logger("query_rewriter")
 # Fallback result
 # -------------------------------------------------------
 
-def _fallback_result(raw_query: str) -> Dict:
-    logger.warning("[REWRITER] Using fallback — raw query passed as-is")
+def _fallback_result(raw_query: str, user_intent: str = None) -> Dict:
+    """Return fallback result, respecting user intent if provided."""
+    # User intent is PRIORITY if valid, otherwise default to "qa"
+    if user_intent and user_intent in {"workflow_generation", "workflow_correction", "qa"}:
+        fallback_intent = user_intent
+    else:
+        fallback_intent = "qa"
+    
+    logger.warning("[REWRITER] Using fallback — raw query passed as-is (intent=%s)", fallback_intent)
     return {
-        "intent": "workflow_generation",
+        "intent": fallback_intent,
         "task_names": [],
         "search_query_en": raw_query
     }
@@ -92,12 +99,14 @@ class QueryRewriter:
         )
         logger.info("QueryRewriter initialized with unified task registry")
 
-    def rewrite(self, raw_query: str) -> Dict:
+    def rewrite(self, raw_query: str, user_intent: str = None) -> Dict:
         """
         Analyze and enrich a user query for hybrid RAG retrieval.
 
         Args:
-            raw_query: raw user input in any language
+            raw_query:  raw user input in any language
+            user_intent: optional intent hint from user (workflow_generation | workflow_correction | qa)
+                         If provided and valid, used in fallback results
 
         Returns:
             {
@@ -110,7 +119,7 @@ class QueryRewriter:
         """
         if not raw_query or not raw_query.strip():
             logger.warning("[REWRITER] Empty query received")
-            return _fallback_result(raw_query or "")
+            return _fallback_result(raw_query or "", user_intent=user_intent)
 
         logger.info("[REWRITER] Rewriting query: %.80s", raw_query)
 
@@ -130,10 +139,10 @@ class QueryRewriter:
             )
         except Exception:
             logger.exception("[REWRITER] LLM call failed")
-            return _fallback_result(raw_query)
+            return _fallback_result(raw_query, user_intent=user_intent)
 
         # Step 4 — parse and validate
-        result = self._parse_response(response, raw_query)
+        result = self._parse_response(response, raw_query, user_intent=user_intent)
 
         logger.info(
             "[REWRITER] [OK] intent=%s  tasks=%s",
@@ -142,10 +151,10 @@ class QueryRewriter:
         )
         return result
 
-    def _parse_response(self, response: str, raw_query: str) -> Dict:
+    def _parse_response(self, response: str, raw_query: str, user_intent: str = None) -> Dict:
         if not response or not response.strip():
             logger.warning("[REWRITER] LLM returned empty response")
-            return _fallback_result(raw_query)
+            return _fallback_result(raw_query, user_intent=user_intent)
 
         # Strip markdown fences if LLM adds ```json ... ```
         clean = re.sub(r"```(?:json)?", "", response).strip().strip("`").strip()
@@ -156,7 +165,7 @@ class QueryRewriter:
             logger.warning(
                 "[REWRITER] Could not parse JSON: %.200s", response
             )
-            return _fallback_result(raw_query)
+            return _fallback_result(raw_query, user_intent=user_intent)
 
         # Validate intent
         intent = parsed.get("intent", "workflow_generation")

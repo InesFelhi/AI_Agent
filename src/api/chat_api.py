@@ -180,8 +180,8 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
 
     processor = WorkflowProcessor(llm_client=llm)
 
-    # STEP 1 — REWRITE
-    rewrite = rewriter.rewrite(payload.query)
+    # STEP 1 — REWRITE (pass user intent hint for fallback priority)
+    rewrite = rewriter.rewrite(payload.query, user_intent=payload.type_intent)
 
     # User choice is EXPLICIT and must be respected
     valid_intents = {"workflow_generation", "workflow_correction", "qa"}
@@ -192,7 +192,7 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
         intent = payload.type_intent
         logger.info("[CHAT] Using user-selected intent: %s", intent)
     else:
-        # No user choice → rewriter detects automatically
+        # No user choice → rewriter detects automatically (respects hint even in fallback)
         intent = rewrite["intent"]
         intent_source = "rewriter_detection"
         logger.info("[CHAT] Intent auto-detected by rewriter: %s", intent)
