@@ -1,10 +1,13 @@
 import json
+import asyncio
+import time
 from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Depends, status, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from qdrant_client import QdrantClient
 
 from src.config import config
@@ -42,10 +45,27 @@ security = HTTPBearer()
 # =========================================================
 
 class ChatRequest(BaseModel):
-    query: str
-    type_intent: Optional[str] = None  # "workflow_generation" | "workflow_correction" | "qa"
-    workflow: Optional[Dict[str, Any]] = None
-    provider: Optional[str] = None
+    """Request model with comprehensive validation."""
+    query: str = Field(
+        ...,
+        min_length=1,
+        max_length=5000,
+        description="User query (1-5000 characters)"
+    )
+    type_intent: Optional[str] = Field(
+        default=None,
+        pattern="^(workflow_generation|workflow_correction|qa)?$",
+        description="Optional: workflow_generation, workflow_correction, or qa"
+    )
+    workflow: Optional[Dict[str, Any]] = Field(
+        default=None,
+        description="Optional workflow object for correction"
+    )
+    provider: Optional[str] = Field(
+        default=None,
+        pattern="^(openai|ollama|openrouter)?$",
+        description="Optional LLM provider override"
+    )
 
 
 class WorkflowResult(BaseModel):
@@ -95,6 +115,26 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+# =========================================================
+# MIDDLEWARE
+# =========================================================
+
+@app.middleware("http")
+async def timeout_middleware(request: Request, call_next):
+    """Add request timeout middleware (30 seconds)."""
+    try:
+        async with asyncio.timeout(30):
+            response = await call_next(request)
+            return response
+    except asyncio.TimeoutError:
+        logger.error("[TIMEOUT] Request timeout after 30s: %s %s", 
+                    request.method, request.url.path)
+        return JSONResponse(
+            status_code=504,
+            content={"detail": "Request processing timeout"}
+        )
 
 
 # =========================================================
@@ -148,37 +188,77 @@ def _parse_workflow_llm_output(raw: Any) -> Dict[str, Any]:
 )
 async def chat_endpoint(payload: ChatRequest, request: Request):
 
-    # INIT
-    provider = payload.provider or config.LLM_PROVIDER or "openai"
+    # INIT with comprehensive error handling
+    try:
+        provider = payload.provider or config.LLM_PROVIDER or "openai"
+        logger.info("[CHAT] Initializing with provider: %s", provider)
+        llm = create_llm_client(provider=provider)
+        logger.debug("[CHAT] LLM client created")
+    except ValueError as e:
+        logger.error("[CHAT] Invalid LLM provider: %s", str(e))
+        raise HTTPException(status_code=400, detail=f"Invalid LLM provider: {str(e)}")
+    except Exception as e:
+        logger.exception("[CHAT] Failed to create LLM client")
+        raise HTTPException(status_code=500, detail="Failed to initialize language model")
 
-    llm = create_llm_client(provider=provider)
+    try:
+        qdrant_client = QdrantClient(
+            host=config.QDRANT_HOST,
+            port=config.QDRANT_PORT
+        )
+        logger.debug("[CHAT] Qdrant client created")
+        # Quick connection test
+        qdrant_client.get_collections()
+        logger.debug("[CHAT] Qdrant connection verified")
+    except ConnectionError as e:
+        logger.error("[CHAT] Cannot connect to Qdrant: %s", str(e))
+        raise HTTPException(status_code=503, detail="Vector database temporarily unavailable")
+    except Exception as e:
+        logger.exception("[CHAT] Qdrant initialization failed")
+        raise HTTPException(status_code=503, detail="Vector database error")
 
-    qdrant_client = QdrantClient(
-        host=config.QDRANT_HOST,
-        port=config.QDRANT_PORT
-    )
+    try:
+        embedder = Embedder.get_instance()
+        sparse_embedder = SparseEmbedder.get_instance()
+        logger.debug("[CHAT] Embedding models loaded")
+    except Exception as e:
+        logger.exception("[CHAT] Failed to load embedding models")
+        raise HTTPException(status_code=503, detail="Embedding models unavailable")
 
-    embedder = Embedder.get_instance()
-    sparse_embedder = SparseEmbedder.get_instance()
+    try:
+        store = VectorStore(
+            collection_name=config.QDRANT_COLLECTION_NAME
+        )
+        logger.debug("[CHAT] Vector store initialized")
+    except Exception as e:
+        logger.exception("[CHAT] Vector store initialization failed")
+        raise HTTPException(status_code=503, detail="Vector store unavailable")
 
-    store = VectorStore(
-        collection_name=config.QDRANT_COLLECTION_NAME
-    )
+    try:
+        rewriter = QueryRewriter(
+            llm_client=llm,
+            qdrant_client=qdrant_client,
+            collection_name=config.QDRANT_COLLECTION_NAME,
+            cache_ttl_seconds=600
+        )
+        logger.debug("[CHAT] Query rewriter initialized")
+    except Exception as e:
+        logger.exception("[CHAT] Query rewriter initialization failed")
+        raise HTTPException(status_code=500, detail="Query rewriter initialization failed")
 
-    rewriter = QueryRewriter(
-        llm_client=llm,
-        qdrant_client=qdrant_client,
-        collection_name=config.QDRANT_COLLECTION_NAME,
-        cache_ttl_seconds=600
-    )
-
-    planner = WorkflowPlanner(
-        llm_client=llm,
-        qdrant_client=qdrant_client,
-        collection_name=config.QDRANT_COLLECTION_NAME
-    )
+    try:
+        planner = WorkflowPlanner(
+            llm_client=llm,
+            qdrant_client=qdrant_client,
+            collection_name=config.QDRANT_COLLECTION_NAME
+        )
+        logger.debug("[CHAT] Workflow planner initialized")
+    except Exception as e:
+        logger.exception("[CHAT] Workflow planner initialization failed")
+        raise HTTPException(status_code=500, detail="Workflow planner initialization failed")
 
     processor = WorkflowProcessor(llm_client=llm)
+    logger.debug("[CHAT] Workflow processor initialized")
 
     # STEP 1 — REWRITE (pass user intent hint for fallback priority)
     rewrite = rewriter.rewrite(payload.query, user_intent=payload.type_intent)

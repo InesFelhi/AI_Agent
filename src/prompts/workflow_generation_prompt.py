@@ -22,11 +22,11 @@ Assistant version: {ATLASS_VERSION}
   11. Output must be a single JSON object with exactly two top-level keys: "workflow" and "explanation".
   12. The "workflow" key must contain the workflow JSON object as described in these rules.
   13. The "explanation" key must contain a concise explanation covering:
-      • RÉSUMÉ: What workflow does (1-2 lines)
-      • ÉTAPES: Each task (name, ID, inputs, outputs)
-      • FLUX: Path sequence with IDs
-      • VARIABLES: How data flows between tasks
-      • RÉSULTATS: Success/failure outcomes
+      • SUMMARY: What workflow does (1-2 lines)
+      • STEPS: Each task (name, ID, inputs, outputs)
+      • FLOW: Path sequence with IDs
+      • VARIABLES FLOW: How data flows between tasks
+      • RESULTS: Success/failure outcomes
   14. Do not include any explanation outside the "explanation" field.
 
 --- Rules for Parameters and Variables ---
@@ -65,44 +65,59 @@ A Compare node produces exactly ONE link entry with both "true" and "false" in t
   → Links format: {{"from": "X", "to": "Y"}}
   → NO true/false branches allowed
   → Cannot route execution based on conditions
+
 - CONDITIONAL tasks (output: boolean result): CompareNumber, CompareStrings, etc.
   → Links format: {{"from": "X", "true": "Y", "false": "Z"}}
   → ALWAYS produces true/false branches
   → MUST route execution to both paths
-⚠️ IMPORTANT: To add branching after a Normal task, INSERT a Conditional task first. Never apply true/false branches directly to Normal tasks. Verify task type in task documentation (Summary section: "Task type: Normal" or "Task type: Conditional").
+
+⚠️ IMPORTANT:
+To add branching after a Normal task, INSERT a Conditional task first.
+Never apply true/false branches directly to Normal tasks.
+Verify task type in task documentation
+(Summary section: "Task type: Normal" or "Task type: Conditional").
 
 ⚠️ RULE E — Branch Completeness (CRITICAL):
 When a Conditional task creates true/false branches, BOTH branches MUST be complete:
 - Every id referenced in true/false Links MUST exist as an actual node in the workflow
 - Every node EXCEPT End must have at least ONE outgoing link in Links
-- If Compare(-1002) routes to true: -1003, false: -1004 → BOTH -1003 AND -1004 must exist
+- If Compare(-1002) routes to true: -1003, false: -1004
+  → BOTH -1003 AND -1004 must exist
 - All referenced nodes must eventually route to an End node
+
 CORRECT PATTERN:
   {{"from": "-1002", "true": "-1003", "false": "-1004"}}
-  {{"from": "-1003", "to": "-2000"}}  ← -1003 has outgoing link
-  {{"from": "-1004", "to": "-2000"}}  ← -1004 has outgoing link
+  {{"from": "-1003", "to": "-2000"}}
+  {{"from": "-1004", "to": "-2000"}}
+
 WRONG:
   {{"from": "-1002", "true": "-1003", "false": "-1004"}}
-  {{"from": "-1003", "to": "-2000"}}  ← -1004 missing OR has no outgoing link
+  {{"from": "-1003", "to": "-2000"}}
 
 --- Multi-task composition ---
-A workflow commonly chains multiple tasks together. Follow these patterns:
 
 Pattern 1 — Execute then check result:
-  Start(-1000) → Task(-1001) → Compare(-1002) → [true: End(-2000) | false: End(-2001)]
+  Start(-1000) → Task(-1001) → Compare(-1002)
+  → [true: End(-2000) | false: End(-2001)]
 
 Pattern 2 — Execute with retry loop:
-  Start(-1000) → Task(-1001) → Compare(-1002) → [true: End(-2000) | false: Increment(-1003)]
-                                                                          ↓
-                                                          CheckLimit(-1004) → [true: End(-2000) | false: Task(-1001)]
+  Start(-1000) → Task(-1001) → Compare(-1002)
+  → [true: End(-2000) | false: Increment(-1003)]
+                                      ↓
+                        CheckLimit(-1004)
+  → [true: End(-2000) | false: Task(-1001)]
 
 Pattern 3 — Chain multiple tasks sequentially:
-  Start(-1000) → Task1(-1001) → Task2(-1002) → Task3(-1003) → End(-2000)
+  Start(-1000) → Task1(-1001) → Task2(-1002)
+  → Task3(-1003) → End(-2000)
 
 Pattern 4 — Conditional branch to 2 different outputs:
-  Start(-1000) → Task(-1001) → Compare(-1002) → [true: TaskA(-1003) | false: TaskB(-1004)]
+  Start(-1000) → Task(-1001) → Compare(-1002)
+  → [true: TaskA(-1003) | false: TaskB(-1004)]
+
   TaskA(-1003) → End(-2000)
   TaskB(-1004) → End(-2001)
+
   Links:
     {{"from": "-1000", "to": "-1001"}},
     {{"from": "-1001", "to": "-1002"}},
@@ -114,13 +129,15 @@ Rules for multi-task workflows:
 - Variables used as output of one task and input of another MUST be declared in Start.
 - Every node except End MUST have at least one outgoing link in Links.
 - Conditional links (true/false) are used after Compare nodes only.
-- Unconditional links (to) are used after execution tasks (CmdStage, IntegerSingleOps, etc.).
-- You can have multiple End nodes for different exit paths (success, error, max retry reached).
+- Unconditional links (to) are used after execution tasks
+  (CmdStage, IntegerSingleOps, etc.).
+- You can have multiple End nodes for different exit paths
+  (success, error, max retry reached).
 
 --- Explanation Format (MANDATORY TEMPLATE) ---
-"explanation": "RÉSUMÉ: [1-2 line summary]
+"explanation": "SUMMARY: [1-2 line summary]
 
-ÉTAPES:
+STEPS:
 [N]. [TaskType] ([id]): [action]
     INPUT: [what it receives]
     OUTPUT: [what it produces]
@@ -128,31 +145,31 @@ Rules for multi-task workflows:
 
 [repeat for each task]
 
-FLUX: Start → [task sequence with IDs] → End
+FLOW: Start → [task sequence with IDs] → End
 
 VARIABLES FLOW:
 • [var1] from [TaskA] → [TaskB] uses it
 • [complete data chain shown]
 
-RÉSULTATS:
+RESULTS:
 ✅ SUCCESS: [specific outcomes]
 ❌ FAILURE: [error scenarios]"
 
 ⚠️ CRITICAL - EXPLANATION RULES:
-1. Use REAL line breaks (\n) - NOT continuous text
+1. Use REAL line breaks (\\n) - NOT continuous text
 2. Each section on separate lines
 3. For EACH task: INPUT, OUTPUT, WHY (all mandatory)
-4. FLUX shows complete path with all IDs
-5. VARIABLES shows full data flow chain
-6. RÉSULTATS has BOTH ✅ and ❌
+4. FLOW shows complete path with all IDs
+5. VARIABLES FLOW shows full data flow chain
+6. RESULTS has BOTH ✅ and ❌
 7. Each line under 100 chars (readable)
 
 --- Pre-submission Checklist ---
-☐ RÉSUMÉ is 1-2 lines
-☐ ÉTAPES has ALL tasks with INPUT/OUTPUT/WHY
-☐ FLUX complete with all IDs
-☐ VARIABLES shows data chain
-☐ RÉSULTATS has both cases
+☐ SUMMARY is 1-2 lines
+☐ STEPS has ALL tasks with INPUT/OUTPUT/WHY
+☐ FLOW complete with all IDs
+☐ VARIABLES FLOW shows data chain
+☐ RESULTS has both cases
 ☐ Line breaks used properly
 ☐ Readable format (not one line)
 """
@@ -188,7 +205,7 @@ CANONICAL_EXAMPLE = """
     {
       "id": "-1002",
       "var_x": "$PING_ERROR",
-      "var_y": "\\"\\"",
+      "var_y": "\\"\\",
       "compare_type": "Equal"
     }
   ],
@@ -217,9 +234,46 @@ CANONICAL_EXAMPLE = """
     {"from": "-1002", "true": "-2000", "false": "-1003"},
     {"from": "-1003", "to": "-1004"},
     {"from": "-1004", "true": "-2000", "false": "-1001"}
-  ]  
+  ]
 },
-"explanation": "RÉSUMÉ: Ping server, extract min/max values, display results. ÉTAPES: (1) CmdStage (-1001) ping -c 5 → $PING_OUTPUT,$PING_ERROR. (2) JavaCode (-1002) parse output → minValue,maxValue. (3) SetVariable (-1003,-1004) minValue→$MIN_VALUE, maxValue→$MAX_VALUE. (4) TextReport (-1005) display 'Min: $MIN_VALUE, Max: $MAX_VALUE'. FLUX: Start→CmdStage→JavaCode→SetVariable(2x)→TextReport→End. VARIABLES: $PING_OUTPUT from CmdStage→JavaCode parses→minValue,maxValue→SetVariable copies→$MIN_VALUE,$MAX_VALUE. RÉSULTATS: ✅ ping succeeds, min/max extracted, report displayed. ❌ timeout/parse error."
+"explanation": "SUMMARY: Ping server, extract min/max values, display results.
+
+STEPS:
+1. CmdStage (-1001): Execute ping command
+    INPUT: $ICMP_COUNT, $ICMP_INTERVAL_SECONDS, $SITE_TEST
+    OUTPUT: $PING_RESULT, $PING_ERROR
+    WHY: Test server connectivity
+
+2. CompareStrings (-1002): Check ping errors
+    INPUT: $PING_ERROR
+    OUTPUT: Boolean branch result
+    WHY: Determine success or retry path
+
+3. IntegerSingleOps (-1003): Increment retry counter
+    INPUT: $RETRY_INDEX
+    OUTPUT: $RETRY_INDEX
+    WHY: Track retry attempts
+
+4. CompareNumber (-1004): Check retry limit
+    INPUT: $RETRY_INDEX, $MAX_RETRY
+    OUTPUT: Boolean branch result
+    WHY: Stop retries after limit reached
+
+FLOW:
+Start(-1000) → CmdStage(-1001) → CompareStrings(-1002)
+→ [true: End(-2000) | false: IntegerSingleOps(-1003)]
+→ CompareNumber(-1004)
+→ [true: End(-2000) | false: CmdStage(-1001)]
+
+VARIABLES FLOW:
+• $PING_RESULT produced by CmdStage
+• $PING_ERROR from CmdStage → CompareStrings
+• $RETRY_INDEX updated by IntegerSingleOps
+• $RETRY_INDEX and $MAX_RETRY → CompareNumber
+
+RESULTS:
+✅ SUCCESS: Ping succeeds before retry limit
+❌ FAILURE: Maximum retries reached or ping keeps failing"
 }
 """
 
@@ -232,7 +286,8 @@ WORKFLOW_GENERATION_USER = Template("""
 --- Planner Required Tasks (use EXACTLY as keys in JSON) ---
 $required_tasks_list
 
---- JSON Structure Examples per Task (USE THESE FIELD NAMES EXACTLY — do not invent field names) ---
+--- JSON Structure Examples per Task
+(USE THESE FIELD NAMES EXACTLY — do not invent field names) ---
 $task_examples
 
 Context:
@@ -253,32 +308,57 @@ def build_workflow_generation_prompt(
     task_examples: str = "",
     examples: str = "",  # kept for backward compatibility, ignored
 ) -> tuple[str, str]:
+
     import json
 
     # Extract required_tasks from plan for explicit JSON key list
     required_tasks_list = ""
+
     if plan and plan.get("required_tasks"):
         required_tasks = plan.get("required_tasks", [])
-        required_tasks_list = "\n".join([f"• {task}" for task in required_tasks])
+        required_tasks_list = "\n".join(
+            [f"• {task}" for task in required_tasks]
+        )
     else:
-        required_tasks_list = "(No required tasks available - use available tasks from context)"
+        required_tasks_list = (
+            "(No required tasks available - use available tasks from context)"
+        )
 
     # Format plan if provided
     plan_str = ""
+
     if plan:
         try:
-            plan_str = json.dumps(plan, indent=2, ensure_ascii=False)
+            plan_str = json.dumps(
+                plan,
+                indent=2,
+                ensure_ascii=False
+            )
         except Exception:
             plan_str = str(plan)
     else:
-        plan_str = "No planner decomposition available (direct generation mode)."
+        plan_str = (
+            "No planner decomposition available "
+            "(direct generation mode)."
+        )
 
     system = WORKFLOW_GENERATION_SYSTEM
+
     user = WORKFLOW_GENERATION_USER.safe_substitute(
         required_tasks_list=required_tasks_list,
-        task_examples=task_examples.strip() if task_examples else "No examples available.",
-        context=context.strip() if context else "No task documentation available.",
+        task_examples=(
+            task_examples.strip()
+            if task_examples
+            else "No examples available."
+        ),
+        context=(
+            context.strip()
+            if context
+            else "No task documentation available."
+        ),
         plan=plan_str,
         instruction=instruction.strip(),
     )
+
     return system, user
+

@@ -4,6 +4,7 @@ Main entry point for AndroMate APIs.
 """
 
 import argparse
+import sys
 import uvicorn
 from src.config import config
 
@@ -20,6 +21,14 @@ def parse_args():
 
 
 if __name__ == "__main__":
+    # Validate configuration at startup
+    try:
+        config.validate()
+        print("[OK] Configuration validated successfully")
+    except ValueError as e:
+        print(f"[ERROR] Configuration validation failed:\n{str(e)}", file=sys.stderr)
+        sys.exit(1)
+    
     args = parse_args()
     module = "src.api.rag_api" if args.app == "rag" else "src.api.chat_api"
 

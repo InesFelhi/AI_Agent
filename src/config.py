@@ -80,6 +80,42 @@ class Config:
     OPENROUTER_BASE_URL: str = os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
     @classmethod
+    def validate(cls) -> None:
+        """Validate critical configuration values at startup."""
+        errors = []
+        
+        # Validate API key
+        if cls.API_KEY == "your-default-api-key":
+            errors.append("API_KEY must not use default value")
+        
+        if not cls.API_KEY or len(cls.API_KEY) < 16:
+            errors.append("API_KEY must be at least 16 characters")
+        
+        # Validate LLM provider
+        if cls.LLM_PROVIDER not in ("openai", "ollama", "openrouter"):
+            errors.append(f"LLM_PROVIDER must be openai/ollama/openrouter, got: {cls.LLM_PROVIDER}")
+        
+        # Validate provider-specific keys
+        if cls.LLM_PROVIDER == "openai" and not cls.OPENAI_API_KEY:
+            errors.append("OPENAI_API_KEY required when LLM_PROVIDER='openai'")
+        
+        # Validate chunk sizes
+        if cls.CHUNK_MAX_SIZE < 50 or cls.CHUNK_MAX_SIZE > 2000:
+            errors.append(f"CHUNK_MAX_SIZE must be 50-2000, got {cls.CHUNK_MAX_SIZE}")
+        
+        if cls.CHUNK_OVERLAP >= cls.CHUNK_MAX_SIZE:
+            errors.append(f"CHUNK_OVERLAP must be < CHUNK_MAX_SIZE")
+        
+        # Validate port ranges
+        for name, val in [("API_PORT", cls.API_PORT), ("QDRANT_PORT", cls.QDRANT_PORT)]:
+            if not (1024 <= val <= 65535):
+                errors.append(f"{name} must be 1024-65535, got {val}")
+        
+        if errors:
+            error_msg = "\n".join(f"  - {e}" for e in errors)
+            raise ValueError(f"Configuration validation failed:\n{error_msg}")
+
+    @classmethod
     def to_dict(cls) -> dict:
         """Return all configuration as dictionary."""
         return {
