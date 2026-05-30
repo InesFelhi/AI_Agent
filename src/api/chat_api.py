@@ -1,16 +1,20 @@
 import json
 import asyncio
 import time
+import hashlib
 from typing import Any, Dict, List, Optional
+from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
 from fastapi import FastAPI, HTTPException, Depends, status, Request
+from fastapi.responses import JSONResponse, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 from pydantic import BaseModel, Field
-from qdrant_client import QdrantClient
 
 from src.config import config
+from src.monitoring import REQUEST_COUNTER, ACTIVE_REQUESTS, REQUEST_DURATION, HTTP_STATUS_CODE_TOTAL, SERVER_UP
 
 from src.ingestion_pipeline.embedder import Embedder
 from src.ingestion_pipeline.sparse_embedder import SparseEmbedder
@@ -20,7 +24,7 @@ from src.ingestion_pipeline.task_section_extractor import (
     build_workflow_context_for_tasks
 )
 
-from src.llm import create_llm_client
+from src.clients import get_qdrant_client, get_llm_client
 
 from src.prompts import (
     build_workflow_generation_prompt,
@@ -38,6 +42,17 @@ from src.utilities.logger import get_module_logger
 logger = get_module_logger("chat_api")
 
 security = HTTPBearer()
+
+# =========================================================
+# GLOBAL STATE - Memory Management
+# =========================================================
+
+client_request_times: Dict[str, datetime] = {}
+cleanup_task: Optional[asyncio.Task] = None
+
+# Request response cache (1 hour TTL)
+response_cache: Dict[str, tuple] = {}  # Format: {cache_key: (response_dict, timestamp)}
+CACHE_TTL_SECONDS = 3600  # 1 hour
 
 
 # =========================================================
@@ -85,6 +100,102 @@ class ChatResponse(BaseModel):
 
 
 # =========================================================
+# MEMORY CLEANUP
+# =========================================================
+
+async def cleanup_old_client_requests(interval_seconds: int = 300, max_age_hours: int = 1):
+    """
+    Background task to clean up stale client_request_times entries and expired cache.
+    
+    Runs every 'interval_seconds' and removes entries older than 'max_age_hours'.
+    This prevents memory leaks from unbounded dict growth.
+    
+    Args:
+        interval_seconds: How often to run cleanup (default: 300 = 5 min)
+        max_age_hours: Remove entries older than this (default: 1 hour)
+    """
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            now = datetime.now()
+            cutoff_time = now - timedelta(hours=max_age_hours)
+            
+            # Find expired client entries
+            expired_clients = [
+                client_id for client_id, timestamp in client_request_times.items()
+                if timestamp < cutoff_time
+            ]
+            
+            # Remove expired client entries
+            for client_id in expired_clients:
+                del client_request_times[client_id]
+            
+            if expired_clients:
+                logger.info(
+                    "[MEMORY] Cleaned up %d stale client entries (older than %d hours). "
+                    "Current clients tracked: %d",
+                    len(expired_clients), max_age_hours, len(client_request_times)
+                )
+            
+            # Cleanup expired cache entries
+            expired_cache_keys = [
+                key for key, (_, timestamp) in response_cache.items()
+                if (now - timestamp).total_seconds() > CACHE_TTL_SECONDS
+            ]
+            
+            for key in expired_cache_keys:
+                del response_cache[key]
+            
+            if expired_cache_keys:
+                logger.info(
+                    "[CACHE] Cleaned up %d expired cache entries. "
+                    "Current cache size: %d",
+                    len(expired_cache_keys), len(response_cache)
+                )
+        except Exception as e:
+            logger.error("[MEMORY] Error in cleanup task: %s", str(e))
+            # Continue cleanup even on error
+            continue
+
+
+def generate_cache_key(query: str, intent: Optional[str], workflow: Optional[Dict]) -> str:
+    """
+    Generate a cache key for chat request.
+    
+    Uses MD5 hash of query + intent + workflow to create deterministic key.
+    """
+    cache_data = f"{query}|{intent}|{json.dumps(workflow, sort_keys=True) if workflow else ''}"
+    return hashlib.md5(cache_data.encode()).hexdigest()
+
+
+def get_cached_response(cache_key: str) -> Optional[Dict]:
+    """
+    Retrieve cached response if it exists and hasn't expired.
+    """
+    if cache_key not in response_cache:
+        return None
+    
+    response_data, cached_time = response_cache[cache_key]
+    age_seconds = (datetime.now() - cached_time).total_seconds()
+    
+    if age_seconds > CACHE_TTL_SECONDS:
+        # Expired
+        del response_cache[cache_key]
+        return None
+    
+    logger.info("[CACHE] Cache HIT for key %s (age: %.1fs)", cache_key, age_seconds)
+    return response_data
+
+
+def set_cached_response(cache_key: str, response_data: Dict) -> None:
+    """
+    Store response in cache.
+    """
+    response_cache[cache_key] = (response_data, datetime.now())
+    logger.info("[CACHE] Cached response for key %s (total cache size: %d)", cache_key, len(response_cache))
+
+
+# =========================================================
 # SECURITY
 # =========================================================
 
@@ -100,12 +211,71 @@ async def verify_api_key(
 
 
 # =========================================================
+# LIFESPAN
+# =========================================================
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """
+    Lifespan context manager for Chat API.
+    
+    Startup:
+    - Initialize server health status
+    - Start background cleanup task for memory management
+    
+    Shutdown:
+    - Cancel cleanup task
+    - Clean up resources
+    """
+    global cleanup_task
+    
+    # ===================== STARTUP =====================
+    try:
+        logger.info("=" * 70)
+        logger.info("[STARTUP] Chat API initializing...")
+        
+        # Set server health to UP
+        SERVER_UP.set(1)
+        logger.info("[METRICS] Server health status set to UP")
+        
+        # Start memory cleanup task (runs every 5 minutes)
+        cleanup_task = asyncio.create_task(
+            cleanup_old_client_requests(interval_seconds=300, max_age_hours=1)
+        )
+        logger.info("[MEMORY] Background cleanup task started (runs every 5 min)")
+        logger.info("=" * 70)
+    except Exception as e:
+        logger.error("CRITICAL: Failed to initialize Chat API")
+        logger.exception("Startup error: %s", str(e))
+        SERVER_UP.set(0)
+        raise
+    
+    yield  # App runs here
+    
+    # ===================== SHUTDOWN =====================
+    logger.info("=" * 70)
+    logger.info("[SHUTDOWN] Chat API shutting down...")
+    
+    # Cancel cleanup task gracefully
+    if cleanup_task and not cleanup_task.done():
+        cleanup_task.cancel()
+        try:
+            await cleanup_task
+        except asyncio.CancelledError:
+            logger.info("[MEMORY] Cleanup task cancelled")
+    
+    SERVER_UP.set(0)
+    logger.info("=" * 70)
+
+
+# =========================================================
 # APP
 # =========================================================
 
 app = FastAPI(
     title=config.API_TITLE + " Chat API",
-    version=config.API_VERSION
+    version=config.API_VERSION,
+    lifespan=lifespan
 )
 
 app.add_middleware(
@@ -122,18 +292,50 @@ app.add_middleware(
 # =========================================================
 
 @app.middleware("http")
-async def timeout_middleware(request: Request, call_next):
-    """Add request timeout middleware (30 seconds)."""
+async def prometheus_middleware(request: Request, call_next):
+    """Middleware to capture metrics for all HTTP requests."""
+    method = request.method
+    endpoint = request.url.path
+    
+    # Increment active requests
+    ACTIVE_REQUESTS.inc()
+    
+    # Measure request duration
+    start_time = time.time()
     try:
-        async with asyncio.timeout(30):
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception as e:
+        status_code = 500
+        logger.error("Request failed: %s %s - %s", method, endpoint, str(e))
+        raise
+    finally:
+        # Record metrics
+        duration = time.time() - start_time
+        REQUEST_DURATION.labels(endpoint=endpoint, method=method).observe(duration)
+        REQUEST_COUNTER.labels(method=method, endpoint=endpoint, http_status=status_code).inc()
+        HTTP_STATUS_CODE_TOTAL.labels(http_status=status_code).inc()
+        ACTIVE_REQUESTS.dec()
+        
+        logger.debug("[METRICS] %s %s - Status: %d - Duration: %.3fs", 
+                    method, endpoint, status_code, duration)
+    
+    return response
+
+
+@app.middleware("http")
+async def timeout_middleware(request: Request, call_next):
+    """Add request timeout middleware (120 seconds for LLM processing)."""
+    try:
+        async with asyncio.timeout(120):  # Increased from 30s to 120s for LLM calls
             response = await call_next(request)
             return response
     except asyncio.TimeoutError:
-        logger.error("[TIMEOUT] Request timeout after 30s: %s %s", 
+        logger.error("[TIMEOUT] Request timeout after 120s: %s %s", 
                     request.method, request.url.path)
         return JSONResponse(
             status_code=504,
-            content={"detail": "Request processing timeout"}
+            content={"detail": "Request processing timeout (>120s). Please try again or contact support."}
         )
 
 
@@ -181,35 +383,59 @@ def _parse_workflow_llm_output(raw: Any) -> Dict[str, Any]:
 # ENDPOINT
 # =========================================================
 
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint. No API key required."""
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
+
+
 @app.post(
     "/chat",
     response_model=ChatResponse,
     dependencies=[Depends(verify_api_key)]
 )
 async def chat_endpoint(payload: ChatRequest, request: Request):
+    """
+    Main chat endpoint for workflow generation, correction, and Q&A.
+    
+    Tracks client activity for memory management (stale entries cleaned up automatically).
+    Caches responses for 1 hour to optimize repeated identical requests.
+    """
+    # Track client request time for memory management
+    client_id = request.client.host if request.client else "unknown"
+    client_request_times[client_id] = datetime.now()
+
+    # ====== CHECK CACHE ======
+    cache_key = generate_cache_key(
+        query=payload.query,
+        intent=payload.type_intent,
+        workflow=payload.workflow
+    )
+    
+    cached_result = get_cached_response(cache_key)
+    if cached_result is not None:
+        logger.info("[CHAT] Returning cached response for client: %s", client_id)
+        return ChatResponse(**cached_result)
 
     # INIT with comprehensive error handling
     try:
         provider = payload.provider or config.LLM_PROVIDER or "openai"
         logger.info("[CHAT] Initializing with provider: %s", provider)
-        llm = create_llm_client(provider=provider)
-        logger.debug("[CHAT] LLM client created")
+        llm = get_llm_client(provider=provider)
+        logger.debug("[CHAT] LLM client retrieved from pool")
     except ValueError as e:
         logger.error("[CHAT] Invalid LLM provider: %s", str(e))
         raise HTTPException(status_code=400, detail=f"Invalid LLM provider: {str(e)}")
     except Exception as e:
-        logger.exception("[CHAT] Failed to create LLM client")
+        logger.exception("[CHAT] Failed to initialize LLM client")
         raise HTTPException(status_code=500, detail="Failed to initialize language model")
 
     try:
-        qdrant_client = QdrantClient(
-            host=config.QDRANT_HOST,
-            port=config.QDRANT_PORT
-        )
-        logger.debug("[CHAT] Qdrant client created")
-        # Quick connection test
-        qdrant_client.get_collections()
-        logger.debug("[CHAT] Qdrant connection verified")
+        qdrant_client = get_qdrant_client()
+        logger.debug("[CHAT] Qdrant client retrieved from pool")
     except ConnectionError as e:
         logger.error("[CHAT] Cannot connect to Qdrant: %s", str(e))
         raise HTTPException(status_code=503, detail="Vector database temporarily unavailable")
@@ -227,9 +453,10 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
 
     try:
         store = VectorStore(
-            collection_name=config.QDRANT_COLLECTION_NAME
+            collection_name=config.QDRANT_COLLECTION_NAME,
+            client=qdrant_client
         )
-        logger.debug("[CHAT] Vector store initialized")
+        logger.debug("[CHAT] Vector store initialized with pooled client")
     except Exception as e:
         logger.exception("[CHAT] Vector store initialization failed")
         raise HTTPException(status_code=503, detail="Vector store unavailable")
@@ -447,7 +674,7 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
         }
 
     # FINAL RESPONSE
-    return ChatResponse(
+    response = ChatResponse(
         intent=intent,
         task_names=task_names,
         result=result,
@@ -460,3 +687,9 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
             **validation_meta
         }
     )
+    
+    # Cache the response for future identical requests
+    response_dict = response.model_dump()
+    set_cached_response(cache_key, response_dict)
+    
+    return response

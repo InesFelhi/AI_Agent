@@ -6,6 +6,7 @@ Provides endpoints to add documents and run the full ingestion pipeline.
 """
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, Request, Depends, status
+from fastapi.responses import Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -16,11 +17,15 @@ from typing import Optional, Literal
 import time
 from collections import defaultdict
 from pydantic import BaseModel
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+
 from src.ingestion_pipeline.ingestion_service import ingest_pipeline
 from src.ingestion_pipeline.vector_store import VectorStore
 from src.ingestion_pipeline.embedder import Embedder
 from src.utilities.logger import get_module_logger
+from src.monitoring import REQUEST_COUNTER, ACTIVE_REQUESTS, REQUEST_DURATION, HTTP_STATUS_CODE_TOTAL, SERVER_UP
 from src.config import config
+from src.clients import get_qdrant_client
 
 logger = get_module_logger("rag_api")
 
@@ -68,6 +73,7 @@ async def lifespan(app: FastAPI):
     
     Startup:
     - Load embedding model once at API startup (singleton pattern)
+    - Initialize server health status
     
     Shutdown:
     - Clean up resources (optional)
@@ -80,10 +86,16 @@ async def lifespan(app: FastAPI):
         Embedder.get_instance()
         logger.info("[SUCCESS] Embedding model loaded successfully at startup")
         logger.info("[SUCCESS] Model will be reused for ALL requests")
+        
+        # Set server health to UP
+        SERVER_UP.set(1)
+        logger.info("[METRICS] Server health status set to UP")
         logger.info("=" * 70)
     except Exception as e:
         logger.error("CRITICAL: Failed to load embedding model at startup")
         logger.exception("Startup error: %s", str(e))
+        # Set server health to DOWN on startup failure
+        SERVER_UP.set(0)
         raise
     
     yield  # App runs here
@@ -91,6 +103,7 @@ async def lifespan(app: FastAPI):
     # ===================== SHUTDOWN =====================
     logger.info("=" * 70)
     logger.info("[SHUTDOWN] Cleaning up resources...")
+    SERVER_UP.set(0)
     logger.info("=" * 70)
 
 
@@ -103,6 +116,38 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def prometheus_middleware(request: Request, call_next):
+    """Middleware to capture metrics for all HTTP requests."""
+    method = request.method
+    endpoint = request.url.path
+    
+    # Increment active requests
+    ACTIVE_REQUESTS.inc()
+    
+    # Measure request duration
+    start_time = time.time()
+    try:
+        response = await call_next(request)
+        status_code = response.status_code
+    except Exception as e:
+        status_code = 500
+        logger.error("Request failed: %s %s - %s", method, endpoint, str(e))
+        raise
+    finally:
+        # Record metrics
+        duration = time.time() - start_time
+        REQUEST_DURATION.labels(endpoint=endpoint, method=method).observe(duration)
+        REQUEST_COUNTER.labels(method=method, endpoint=endpoint, http_status=status_code).inc()
+        HTTP_STATUS_CODE_TOTAL.labels(http_status=status_code).inc()
+        ACTIVE_REQUESTS.dec()
+        
+        logger.debug("[METRICS] %s %s - Status: %d - Duration: %.3fs", 
+                    method, endpoint, status_code, duration)
+    
+    return response
 
 
 def infer_doc_type(filename: str) -> str:
@@ -133,14 +178,27 @@ def infer_doc_type(filename: str) -> str:
 async def health_check():
     """Health check endpoint. No API key required."""
     try:
-        # Optionally, verify Qdrant availability
-        store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
+        # Use pooled client for health check
+        qdrant_client = get_qdrant_client()
+        store = VectorStore(
+            collection_name=config.QDRANT_COLLECTION_NAME,
+            client=qdrant_client
+        )
         # This call can raise if Qdrant unreachable
         store.client.get_collections()
         return {"status": "healthy", "qdrant": "available"}
     except Exception as e:
         logger.warning("Health check warning: %s", str(e))
         return {"status": "unhealthy", "error": str(e)}
+
+
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint. No API key required."""
+    return Response(
+        content=generate_latest(),
+        media_type=CONTENT_TYPE_LATEST
+    )
 
 
 @app.post("/add_document", dependencies=[Depends(verify_api_key)])
@@ -207,7 +265,11 @@ async def add_document(
 
         # Check if document exists and is up to date
         try:
-            store = VectorStore(collection_name="andromate_docs")
+            qdrant_client = get_qdrant_client()
+            store = VectorStore(
+                collection_name="andromate_docs",
+                client=qdrant_client
+            )
             existing_hits = store.search(
                 query_vector=[0.0] * 384,  # dummy vector for existence check
                 limit=1,
@@ -397,7 +459,11 @@ async def add_documents(
 
             # Check if document exists
             try:
-                store = VectorStore(collection_name=config.QDRANT_COLLECTION_NAME)
+                qdrant_client = get_qdrant_client()
+                store = VectorStore(
+                    collection_name=config.QDRANT_COLLECTION_NAME,
+                    client=qdrant_client
+                )
                 existing_hits = store.search(
                     query_vector=[0.0] * 384,
                     limit=1,
