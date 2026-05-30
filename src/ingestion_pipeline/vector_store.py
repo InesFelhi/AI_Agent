@@ -2,7 +2,7 @@
 Vector store module for AI Agent RAG pipeline.
 
 Responsibilities:
-- Connect to Qdrant
+- Connect to Qdrant (or use provided pooled client)
 - Create hybrid collection (dense + sparse)
 - Store embeddings and chunks with both vector types
 - Perform hybrid similarity search (dense cosine + sparse BM25 fused by RRF)
@@ -33,22 +33,44 @@ class VectorStore:
     def __init__(
         self,
         collection_name: str = None,
+        client: Optional[QdrantClient] = None,
         host: str = None,
         port: int = None,
         vector_size: int = None
     ):
+        """
+        Initialize VectorStore with optional connection pooling.
+        
+        Args:
+            collection_name: Name of Qdrant collection to use
+            client: Optional pre-configured QdrantClient (for pooling). 
+                   If provided, ignores host/port parameters.
+            host: Qdrant host (ignored if client provided)
+            port: Qdrant port (ignored if client provided)
+            vector_size: Dimension of embedding vectors
+        """
         self.collection_name = collection_name or config.QDRANT_COLLECTION_NAME
         self.vector_size = vector_size or config.QDRANT_VECTOR_SIZE
 
-        host = host or config.QDRANT_HOST
-        port = port or config.QDRANT_PORT
-
-        logger.info("Connecting to Qdrant at %s:%d", host, port)
-
-        self.client = QdrantClient(
-            host=host,
-            port=port
-        )
+        # Use provided pooled client, or create new connection
+        if client is not None:
+            logger.info("[VECTOR_STORE] Using provided pooled Qdrant client")
+            self.client = client
+        else:
+            host = host or config.QDRANT_HOST
+            port = port or config.QDRANT_PORT
+            
+            logger.info(
+                "[VECTOR_STORE] Creating new Qdrant client connection to %s:%d",
+                host, port
+            )
+            
+            self.client = QdrantClient(
+                host=host,
+                port=port,
+                prefer_grpc=True,  # Use gRPC for better performance
+                timeout=30
+            )
 
         self._create_collection()
 

@@ -24,3 +24,10 @@ tests/
 #Ignore andromate_docs files 
 andromate_docs/
 
+# Ignore .env files
+.env
+
+#Ignore qdrant storage files
+qdrant_storage/
+
+

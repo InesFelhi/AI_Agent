@@ -36,5 +36,7 @@ if __name__ == "__main__":
         f"{module}:app",
         host=config.API_HOST,
         port=config.API_PORT,
-        reload=config.API_RELOAD
+        reload=config.API_RELOAD,
+        timeout_keep_alive=120,      # Allow long-running requests up to 120s
+        timeout_graceful_shutdown=30  # Graceful shutdown timeout
     )
