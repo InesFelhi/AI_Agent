@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'andromate_chat_api'
+    static_configs:
+      - targets: ['host.docker.internal:8000']  # Port réel de chat API
+    metrics_path: '/metrics'
+
+  - job_name: 'andromate_rag_api'
+    static_configs:
+      - targets: ['host.docker.internal:8001']  # Port de RAG API
+    metrics_path: '/metrics'
