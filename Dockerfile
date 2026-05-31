@@ -1,27 +1,39 @@
+# Build stage
+FROM python:3.12-slim as builder
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --user --no-cache-dir -r requirements.txt
+
+# Runtime stage
 FROM python:3.12-slim
 
 WORKDIR /app
 
+# Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV PATH=/home/appuser/.local/bin:$PATH
 
-COPY requirements.txt ./
+# Copy Python dependencies from builder
+COPY --from=builder /root/.local /home/appuser/.local
 
-# Convert requirements file to UTF-8 if needed, then install dependencies.
-RUN python - <<'PY'
-from pathlib import Path
-p = Path('requirements.txt')
-text = p.read_bytes()
-try:
-    content = text.decode('utf-8')
-except UnicodeDecodeError:
-    content = text.decode('utf-16')
-p.write_text(content, encoding='utf-8')
-PY
-RUN pip install --no-cache-dir -r requirements.txt
-
+# Copy application code
 COPY . .
+
+# Create non-root user for security
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 8000
 
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
+
+# Default to RAG API, but allow override
 CMD ["python", "-m", "src.main", "--app", "rag"]
