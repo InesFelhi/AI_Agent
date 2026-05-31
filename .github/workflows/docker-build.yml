@@ -20,4 +20,4 @@ jobs:
       with:
         context: .
         push: false
-        tags: andromate:latest
+        tags: ai-agent:latest

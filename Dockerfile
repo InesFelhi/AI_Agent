@@ -35,5 +35,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
-# Default to RAG API, but allow override
-CMD ["python", "-m", "src.main", "--app", "rag"]
+# Launch Chat API (Workflow generation, correction, Q&A)
+CMD ["python", "-m", "src.main", "--app", "chat"]
