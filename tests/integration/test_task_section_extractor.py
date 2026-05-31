@@ -3,6 +3,7 @@ Test script for task section extraction.
 """
 
 from pathlib import Path
+import pytest
 from src.ingestion_pipeline.task_section_extractor import (
     extract_task_sections,
     format_task_documentation
@@ -10,6 +11,11 @@ from src.ingestion_pipeline.task_section_extractor import (
 
 # Test with cmd.md - use relative path
 cmd_file = Path(__file__).parent.parent / "data" / "raw" / "tasks" / "cmd.md"
+
+# Skip if test data doesn't exist
+if not cmd_file.exists():
+    pytest.skip(f"Test data not found: {cmd_file}", allow_module_level=True)
+
 print("=" * 80)
 print(f"Testing with: {cmd_file.name}")
 print("=" * 80)
