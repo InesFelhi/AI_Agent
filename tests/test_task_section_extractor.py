@@ -8,8 +8,8 @@ from src.ingestion_pipeline.task_section_extractor import (
     format_task_documentation
 )
 
-# Test with cmd.md
-cmd_file = Path("d:/ProjetPfe/AIAgent/data/raw/tasks/cmd.md")
+# Test with cmd.md - use relative path
+cmd_file = Path(__file__).parent.parent / "data" / "raw" / "tasks" / "cmd.md"
 print("=" * 80)
 print(f"Testing with: {cmd_file.name}")
 print("=" * 80)
