@@ -18,8 +18,6 @@ logs/
 */__pycache__/
 **/__pycache__/
 
-# Ignore test files
-tests/
 
 #Ignore andromate_docs files 
 andromate_docs/
