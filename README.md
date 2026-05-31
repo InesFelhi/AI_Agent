@@ -1,9 +1,13 @@
 # 🤖 AndroMate AI Agent - Android Workflow Generation Platform
 
+[![Tests](https://github.com/your-repo/actions/workflows/tests.yml/badge.svg)](https://github.com/your-repo/actions)
+[![Docker](https://github.com/your-repo/actions/workflows/docker-build.yml/badge.svg)](https://github.com/your-repo/actions)
+[![Security](https://github.com/your-repo/actions/workflows/security-scan.yml/badge.svg)](https://github.com/your-repo/actions)
+
 A sophisticated AI-powered system that generates, corrects, and provides QA for Android automation workflows using LLM + RAG (Retrieval-Augmented Generation).
 
-**Status:** Production-Ready with Ongoing Optimizations  
-**Last Updated:** May 30, 2026
+**Status:** Production-Ready with CI/CD ✅  
+**Last Updated:** May 31, 2026
 
 ---
 
@@ -414,6 +418,17 @@ src/
 
 ## 🧪 Testing
 
+### ✅ Continuous Integration (GitHub Actions)
+
+Tests run automatically on every push:
+- **Python 3.11, 3.12, 3.13** - Multi-version testing
+- **69 tests** - 100% pass rate
+- **Coverage reports** - Uploaded to Codecov
+- **Linting checks** - Code quality validation
+- **Security scan** - Weekly vulnerability checks
+
+View results: [GitHub Actions](https://github.com/your-repo/actions)
+
 ### Run All Tests
 
 ```bash
@@ -429,6 +444,7 @@ open htmlcov/index.html
 - **Total Tests:** 69
 - **Passing:** 69/69 (100%)
 - **Coverage:** ~70% of source code
+- **CI/CD:** Automated on every push ✅
 
 ### Key Test Files
 
