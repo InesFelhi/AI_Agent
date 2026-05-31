@@ -33,8 +33,8 @@ Generate, correct, and answer questions about Android automation workflows using
 |-----------|-----------|------|
 | **API Server** | FastAPI 0.135.1 | HTTP endpoint for workflow requests |
 | **LLM Integration** | OpenAI / Ollama / OpenRouter | Natural language understanding |
-| **Vector DB** | Qdrant 2.9.3 | Semantic search for task retrieval |
-| **Embeddings** | sentence-transformers | Dense vector representation |
+| **Vector DB** | Qdrant 1.17.0 | Semantic search for task retrieval |
+| **Embeddings** | sentence-transformers 5.3.0 | Dense vector representation |
 | **Monitoring** | Prometheus 0.25.0 | Metrics collection |
 | **Containerization** | Docker / Docker Compose | Deployment orchestration |
 
