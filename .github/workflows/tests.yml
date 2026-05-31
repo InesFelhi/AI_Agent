@@ -10,6 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     
+    env:
+      OPENAI_API_KEY: sk-test-${{ github.run_id }}
+    
     services:
       qdrant:
         image: qdrant/qdrant:v1.17.0
