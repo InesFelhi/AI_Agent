@@ -383,6 +383,12 @@ def _parse_workflow_llm_output(raw: Any) -> Dict[str, Any]:
 # ENDPOINT
 # =========================================================
 
+@app.get("/health")
+async def health():
+    """Health check endpoint. No API key required."""
+    return {"status": "healthy"}
+
+
 @app.get("/metrics")
 async def metrics():
     """Prometheus metrics endpoint. No API key required."""
