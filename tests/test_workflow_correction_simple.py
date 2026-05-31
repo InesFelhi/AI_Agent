@@ -5,6 +5,8 @@ WITH internal name -> document title resolution
 """
 
 import json
+import os
+import pytest
 
 from qdrant_client import QdrantClient
 
@@ -143,6 +145,10 @@ def parse_llm_json_result(
 # MAIN TEST
 # =========================================================
 
+@pytest.mark.skipif(
+    os.getenv("OPENAI_API_KEY", "").startswith("sk-test-"),
+    reason="Requires real OpenAI API key (not test key)"
+)
 def test_workflow_correction_simple(
 
     correction_instruction: str = (

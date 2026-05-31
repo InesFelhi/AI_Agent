@@ -7,6 +7,8 @@ Displays only:
 """
 
 import json
+import os
+import pytest
 
 from qdrant_client import QdrantClient
 
@@ -40,6 +42,10 @@ QUERY = (
 )
 
 
+@pytest.mark.skipif(
+    os.getenv("OPENAI_API_KEY", "").startswith("sk-test-"),
+    reason="Requires real OpenAI API key (not test key)"
+)
 def test_chat_api_pipeline():
 
     # =====================================================
