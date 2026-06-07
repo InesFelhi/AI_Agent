@@ -1,8 +1,6 @@
 # 🤖 AndroMate AI Agent - Android Workflow Generation Platform
 
-[![Tests](https://github.com/your-repo/actions/workflows/tests.yml/badge.svg)](https://github.com/your-repo/actions)
-[![Docker](https://github.com/your-repo/actions/workflows/docker-build.yml/badge.svg)](https://github.com/your-repo/actions)
-[![Security](https://github.com/your-repo/actions/workflows/security-scan.yml/badge.svg)](https://github.com/your-repo/actions)
+
 
 A sophisticated AI-powered system that generates, corrects, and provides QA for Android automation workflows using LLM + RAG (Retrieval-Augmented Generation).
 
