@@ -14,7 +14,7 @@ class OpenRouterClient(LLMClient):
         self.api_key = Config.OPENROUTER_API_KEY
         self.model = Config.OPENROUTER_MODEL
         self.base_url = Config.OPENROUTER_BASE_URL
-        self.timeout = 30  # Default timeout
+        self.timeout = 60  # Increased from 30s to 60s to handle SSL handshakes
 
         if not self.api_key:
             raise ValueError("OPENROUTER_API_KEY environment variable is required")

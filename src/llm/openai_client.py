@@ -36,7 +36,8 @@ class OpenAIChatClient:
         request = Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers, method="POST")
 
         try:
-            with urlopen(request, timeout=30) as response:
+            # Increased timeout from 30s to 60s to handle SSL handshake and network latency
+            with urlopen(request, timeout=60) as response:
                 body = response.read().decode("utf-8")
                 return json.loads(body)
         except HTTPError as exc:
@@ -48,6 +49,9 @@ class OpenAIChatClient:
             raise
         except URLError as exc:
             logger.error("OpenAI connection error: %s", exc)
+            raise
+        except TimeoutError as exc:
+            logger.error("OpenAI request timeout (60s exceeded): %s", exc)
             raise
 
     def complete(

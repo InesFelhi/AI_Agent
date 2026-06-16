@@ -164,6 +164,10 @@ class JSONValidator:
     def _check_start_node(self, workflow: Dict, result: ValidationResult) -> None:
         start_nodes = workflow.get("Start", [])
 
+        # Ensure start_nodes is a list (LLM may return dict instead)
+        if isinstance(start_nodes, dict):
+            start_nodes = [start_nodes]
+
         if not start_nodes:
             result.add_error(
                 'Missing "Start" node. Every workflow must have exactly one Start node.'

@@ -325,17 +325,17 @@ async def prometheus_middleware(request: Request, call_next):
 
 @app.middleware("http")
 async def timeout_middleware(request: Request, call_next):
-    """Add request timeout middleware (120 seconds for LLM processing)."""
+    """Add request timeout middleware (200 seconds for LLM processing with retries)."""
     try:
-        async with asyncio.timeout(120):  # Increased from 30s to 120s for LLM calls
+        async with asyncio.timeout(200):  # Increased from 120s to 200s for LLM calls with retries
             response = await call_next(request)
             return response
     except asyncio.TimeoutError:
-        logger.error("[TIMEOUT] Request timeout after 120s: %s %s", 
+        logger.error("[TIMEOUT] Request timeout after 200s: %s %s", 
                     request.method, request.url.path)
         return JSONResponse(
             status_code=504,
-            content={"detail": "Request processing timeout (>120s). Please try again or contact support."}
+            content={"detail": "Request processing timeout (>200s). Please try again or contact support."}
         )
 
 
@@ -695,7 +695,19 @@ async def chat_endpoint(payload: ChatRequest, request: Request):
     )
     
     # Cache the response for future identical requests
+    # IMPORTANT: Only cache SUCCESSFUL responses for workflow tasks
+    # Failed responses should be retried on next request
     response_dict = response.model_dump()
-    set_cached_response(cache_key, response_dict)
+    
+    if intent in {"workflow_generation", "workflow_correction"}:
+        # Only cache if validation passed
+        if response.metadata.get("validation_passed", False):
+            set_cached_response(cache_key, response_dict)
+            logger.info("[CACHE] Cached SUCCESSFUL response for key %s", cache_key)
+        else:
+            logger.warning("[CACHE] NOT caching FAILED response for key %s (validation_passed=false)", cache_key)
+    elif intent == "qa":
+        # QA responses don't have validation, always cache
+        set_cached_response(cache_key, response_dict)
     
     return response
