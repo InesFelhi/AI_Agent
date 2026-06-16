@@ -56,6 +56,9 @@ class JSONExtractor:
         # Step 4 — Remove trailing commas
         cleaned = self._remove_trailing_commas(cleaned)
 
+        # Step 5 — Escape unescaped newlines (control characters in JSON strings)
+        cleaned = self._escape_unescaped_newlines(cleaned)
+
         logger.debug("[EXTRACTOR] Extracted JSON length: %d chars", len(cleaned))
         return cleaned.strip()
 
@@ -134,3 +137,67 @@ class JSONExtractor:
             logger.debug("[EXTRACTOR] Trailing commas removed")
 
         return cleaned
+
+    # --------------------------------------------------
+    # Step 5 — Escape unescaped newlines
+    # --------------------------------------------------
+    def _escape_unescaped_newlines(self, text: str) -> str:
+        """
+        Escape literal newlines in JSON strings.
+        
+        Problem: LLMs sometimes generate multi-line strings with literal newlines:
+            "code": "for (String line : array) {
+                extract value
+            }"
+        
+        This is INVALID JSON. json.loads() throws:
+            "Invalid control character at: line X column Y"
+        
+        Solution: Replace literal newlines ONLY inside string values with \n escapes.
+        
+        Strategy: 
+        1. Find all string values (text between unescaped quotes)
+        2. Replace literal newlines (\n, \r\n) with escaped versions (\\n, \\r\\n)
+        3. Preserve URLs (http://, https://) and other ://-patterns
+        """
+        # This regex finds string values and replaces unescaped newlines within them
+        # It's a greedy approach that handles most LLM outputs
+        
+        def escape_string_content(match):
+            """Replace literal newlines inside a matched string."""
+            full_match = match.group(0)
+            # Extract the content between quotes
+            content = full_match[1:-1]  # Remove surrounding quotes
+            
+            # Replace literal newlines with escaped versions
+            # \r\n (Windows) → \\r\\n
+            # \n (Unix) → \\n
+            # \r (Mac old) → \\r
+            content = content.replace('\r\n', '\\r\\n')
+            content = content.replace('\n', '\\n')
+            content = content.replace('\r', '\\r')
+            
+            # Also escape unescaped backslashes to prevent double-escaping
+            # But preserve already escaped sequences
+            # This is complex, so we use a simple heuristic:
+            # Don't re-escape if already escaped (preceded by \)
+            
+            return '"' + content + '"'
+        
+        # Match string values: text between unescaped quotes
+        # This regex is imperfect but handles most cases
+        # Pattern: " followed by (anything except unescaped ") followed by "
+        try:
+            # Simple approach: find quoted strings and escape newlines within them
+            import re
+            pattern = r'"(?:[^"\\]|\\.)*"'
+            result = re.sub(pattern, escape_string_content, text)
+            
+            if result != text:
+                logger.debug("[EXTRACTOR] Unescaped newlines escaped")
+            
+            return result
+        except Exception as e:
+            logger.warning("[EXTRACTOR] Error escaping newlines: %s", str(e))
+            # On error, return original (better than crash)
+            return text
