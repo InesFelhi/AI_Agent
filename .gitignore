@@ -29,3 +29,10 @@ andromate_docs/
 qdrant_storage/
 
 
+#Ignore myenv
+./myenv/
+Dockerfile
+
+# Ignore src/main
+src/main.py
+src/ma

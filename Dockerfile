@@ -5,25 +5,33 @@ WORKDIR /app
 
 COPY requirements.txt .
 
-RUN pip install --user --no-cache-dir --default-timeout=200 --retries 5 -r requirements.txt
+# Installer torch CPU + le reste dans /install
+RUN pip install --no-cache-dir \
+    --target=/install \
+    torch==2.10.0+cpu \
+    --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir \
+    --target=/install \
+    --default-timeout=1000 --retries 10 \
+    -r requirements.txt \
+    --extra-index-url https://download.pytorch.org/whl/cpu
 
 # Runtime stage
 FROM python:3.12-slim
 
 WORKDIR /app
 
-# Environment variables
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
-ENV PATH=/home/appuser/.local/bin:$PATH
+ENV PYTHONPATH=/install
 
-# Copy Python dependencies from builder
-COPY --from=builder /root/.local /home/appuser/.local
+# Copier les dépendances depuis builder
+COPY --from=builder /install /install
 
-# Copy application code
+# Copier le code
 COPY . .
 
-# Create non-root user for security
+# Créer l'utilisateur non-root
 RUN useradd -m -u 1000 appuser && \
     chown -R appuser:appuser /app
 
@@ -31,9 +39,7 @@ USER appuser
 
 EXPOSE 8000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import requests; requests.get('http://localhost:8000/health')" || exit 1
 
-# Launch Chat API (Workflow generation, correction, Q&A)
 CMD ["python", "-m", "src.main", "--app", "chat"]
